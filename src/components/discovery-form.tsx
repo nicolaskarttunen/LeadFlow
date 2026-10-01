@@ -1,6 +1,7 @@
 "use client";
 import { useActionState } from "react";
-import { discoverLeadsAction, initialDiscoveryState } from "@/app/(app)/leads/discover/actions";
+import { discoverLeadsAction } from "@/app/(app)/leads/discover/actions";
+const initialDiscoveryState = { message: null, error: null };
 const inputClass = "w-full rounded-xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 transition focus:border-violet-400/50 focus:ring-4 focus:ring-violet-500/[0.08]";
 export function DiscoveryForm() {
   const [state, action, pending] = useActionState(discoverLeadsAction, initialDiscoveryState);
