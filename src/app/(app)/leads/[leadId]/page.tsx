@@ -13,7 +13,7 @@ function Detail({
 }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-[0.14em] text-slate-600">
+      <div className="text-xs uppercase tracking-[0.14em] text-slate-500">
         {label}
       </div>
       <div className="mt-2 text-sm text-slate-200">{value || "—"}</div>
@@ -73,7 +73,7 @@ export default async function LeadDetailPage({
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Link href="/leads" className="text-sm text-slate-500 hover:text-slate-300">
+      <Link href="/leads" className="text-sm text-slate-400 hover:text-white">
         ← Back to leads
       </Link>
 
@@ -109,7 +109,7 @@ export default async function LeadDetailPage({
             <h2 className="font-semibold">Why contact this company?</h2>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">
               {lead.whyRelevant ||
-                "No reason recorded yet. Future research will only populate this from stored evidence."}
+                "No contact reason has been added yet."}
             </p>
             {lead.potentialService ? (
               <div className="mt-5 rounded-2xl border border-violet-400/15 bg-violet-400/[0.06] p-4">
@@ -216,7 +216,7 @@ export default async function LeadDetailPage({
           <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
             <h2 className="font-semibold">Source</h2>
             <div className="mt-3 text-sm text-slate-400">{lead.source}</div>
-            <div className="mt-1 text-xs text-slate-600">
+            <div className="mt-1 text-xs text-slate-500">
               Discovered {lead.discoveredAt.toLocaleDateString("en-GB")}
             </div>
           </section>
