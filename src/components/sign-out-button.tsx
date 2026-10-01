@@ -24,8 +24,9 @@ export function SignOutButton() {
       type="button"
       onClick={handleSignOut}
       disabled={pending}
-      className="w-full rounded-xl border border-white/10 px-3 py-2 text-left text-sm text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-50"
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-300 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-50"
     >
+      <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.025] text-xs text-slate-400">↗</span>
       {pending ? "Signing out..." : "Sign out"}
     </button>
   );
