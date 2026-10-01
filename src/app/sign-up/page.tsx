@@ -14,7 +14,7 @@ export default async function SignUpPage() {
     <main className="flex min-h-screen items-center justify-center px-5 py-12">
       <AuthCard
         title="Create your account"
-        subtitle="Start with a private workspace. We will add research and outreach providers after the core data layer is stable."
+        subtitle="Create your workspace and start building a focused B2B prospect pipeline."
       >
         <SignUpForm />
       </AuthCard>
