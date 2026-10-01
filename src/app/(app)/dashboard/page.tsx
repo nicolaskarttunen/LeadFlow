@@ -45,7 +45,9 @@ export default async function DashboardPage() {
             <h2 className="font-semibold text-white">Recent leads</h2>
             <p className="mt-1 text-xs text-slate-400">Your latest prospects and their current score.</p>
           </div>
-          <Link href="/leads" className="rounded-lg px-2 py-1 text-sm font-medium text-violet-300 transition hover:bg-violet-400/10 hover:text-violet-200">View all →</Link>
+          {recentLeads.length > 0 ? (
+            <Link href="/leads" className="rounded-lg px-2 py-1 text-sm font-medium text-violet-300 transition hover:bg-violet-400/10 hover:text-violet-200">View all →</Link>
+          ) : null}
         </div>
 
         {recentLeads.length === 0 ? (
