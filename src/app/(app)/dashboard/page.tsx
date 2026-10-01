@@ -26,8 +26,8 @@ export default async function DashboardPage() {
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-300">Workspace overview</div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Good to see you.</h1>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">Track your prospect pipeline and focus on the companies most worth contacting.</p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Your outreach at a glance</h1>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">Review your pipeline, qualification progress and recent prospect activity.</p>
         </div>
         <Link href="/leads/new" className="rounded-xl bg-violet-500 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-lg shadow-violet-950/30 transition hover:bg-violet-400">+ Add lead</Link>
       </div>
@@ -52,7 +52,7 @@ export default async function DashboardPage() {
           <div className="px-5 py-16 text-center">
             <div className="text-sm font-semibold text-slate-100">Your pipeline is empty</div>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-400">Add your first prospect to start building a focused outreach pipeline.</p>
-            <Link href="/leads/new" className="mt-5 inline-flex rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-950">Add first lead</Link>
+            <Link href="/leads/new" className="mt-5 inline-flex rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-950/30 transition hover:bg-violet-400">Add first lead</Link>
           </div>
         ) : (
           <div>
