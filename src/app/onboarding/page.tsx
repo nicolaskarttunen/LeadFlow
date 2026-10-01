@@ -32,9 +32,7 @@ export default async function OnboardingPage({
             Describe your business and target market.
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            This creates your private workspace, company profile and first
-            structured ideal-customer profile. AI refinement comes in a later
-            phase.
+            Tell LeadFlow who you serve and what you offer. These details shape your workspace and ideal-customer profile.
           </p>
         </div>
 
