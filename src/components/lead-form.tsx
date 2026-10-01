@@ -23,7 +23,7 @@ export type LeadFormInitialValues = {
 };
 
 const input =
-  "w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-500/10";
+  "w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-500/10";
 const label = "mb-2 block text-sm font-medium text-slate-300";
 
 const initialState: LeadActionState = {
