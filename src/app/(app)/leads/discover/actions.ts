@@ -6,7 +6,7 @@ import { normalizeCompanyName, normalizeDomain } from "@/lib/normalize";
 import { requireWorkspace } from "@/lib/workspace";
 
 export type DiscoveryActionState = { message: string | null; error: string | null };
-export const initialDiscoveryState: DiscoveryActionState = { message: null, error: null };
+const initialDiscoveryState: DiscoveryActionState = { message: null, error: null };
 
 export async function discoverLeadsAction(_previousState: DiscoveryActionState, formData: FormData): Promise<DiscoveryActionState> {
   const { user, workspace } = await requireWorkspace();
