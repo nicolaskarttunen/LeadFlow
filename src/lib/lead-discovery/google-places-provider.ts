@@ -17,7 +17,7 @@ export class GooglePlacesLeadDiscoveryProvider implements LeadDiscoveryProvider 
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) throw new Error("Google Places API key is not configured.");
 
-    // Discovery keywords describe the service/opportunity we want to evaluate later.\n    // They must not steer Google Places toward SEO/web agencies instead of the target industry.\n    const terms = [query.industry, query.location].filter(Boolean).join(" ");
+    const terms = [query.industry, query.location].filter(Boolean).join(" ");
     const pageSize = Math.max(1, Math.min(query.limit, 20));
 
     const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
