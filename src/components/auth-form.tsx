@@ -6,7 +6,7 @@ import { useState } from "react";
 import { signIn, signUp } from "@/lib/auth-client";
 
 const inputClass =
-  "w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-500/10";
+  "w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-500/10";
 
 export function SignUpForm() {
   const router = useRouter();
@@ -81,7 +81,7 @@ export function SignUpForm() {
         {pending ? "Creating account..." : "Create account"}
       </button>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-slate-400">
         Already have an account?{" "}
         <Link href="/sign-in" className="text-slate-200 hover:text-white">
           Sign in
@@ -158,7 +158,7 @@ export function SignInForm() {
         {pending ? "Signing in..." : "Sign in"}
       </button>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-slate-400">
         New to LeadFlow?{" "}
         <Link href="/sign-up" className="text-slate-200 hover:text-white">
           Create account
