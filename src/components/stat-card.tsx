@@ -8,10 +8,10 @@ export function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className="mt-3 text-3xl font-semibold tracking-tight">{value}</div>
-      {hint ? <div className="mt-2 text-xs text-slate-600">{hint}</div> : null}
+    <div className="surface rounded-2xl p-5 transition duration-200 hover:-translate-y-0.5 hover:border-white/15">
+      <div className="text-sm font-medium text-slate-300">{label}</div>
+      <div className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-white">{value}</div>
+      {hint ? <div className="mt-2 text-xs leading-5 text-slate-400">{hint}</div> : null}
     </div>
   );
 }
