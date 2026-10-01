@@ -31,7 +31,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Leads</h1>
           <p className="mt-2 text-sm leading-6 text-slate-400">Keep prospect information, contacts and qualification status in one place.</p>
         </div>
-        <Link href="/leads/new" className="rounded-xl bg-violet-500 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-lg shadow-violet-950/30 transition hover:bg-violet-400">+ Add lead</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/leads/discover" className="rounded-xl border border-violet-400/25 bg-violet-400/[0.08] px-4 py-2.5 text-center text-sm font-semibold text-violet-200 transition hover:bg-violet-400/[0.14]">Find leads</Link>
+          <Link href="/leads/new" className="rounded-xl bg-violet-500 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-lg shadow-violet-950/30 transition hover:bg-violet-400">+ Add lead</Link>
+        </div>
       </div>
 
       <form className="mt-7">
