@@ -51,7 +51,9 @@ export type WebsiteResearch = {
 };
 
 export async function researchPublicWebsite(startUrl: string): Promise<WebsiteResearch> {
-  let current = (await assertPublicUrl(startUrl)).toString();
+  let initial = startUrl.trim();
+  if (!/^https?:\/\//i.test(initial)) initial = `https://${initial}`;
+  let current = (await assertPublicUrl(initial)).toString();
 
   for (let redirects = 0; redirects <= 3; redirects += 1) {
     const controller = new AbortController();
@@ -75,6 +77,10 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
       continue;
     }
 
+    if (!response.ok && current.startsWith("http://")) {
+      current = (await assertPublicUrl(current.replace(/^http:\/\//i, "https://"))).toString();
+      continue;
+    }
     if (!response.ok) throw new Error(`Website returned HTTP ${response.status}.`);
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
     if (!contentType.includes("text/html")) throw new Error("Website did not return HTML.");
