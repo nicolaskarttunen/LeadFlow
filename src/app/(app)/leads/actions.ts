@@ -10,6 +10,8 @@ import {
   normalizeEmail,
 } from "@/lib/normalize";
 import { requireWorkspace } from "@/lib/workspace";
+import { getGooglePlaceDetails } from "@/lib/lead-discovery/google-place-details";
+import { reserveGooglePlacesDetails } from "@/lib/lead-discovery/place-details-usage";
 
 export type LeadActionState = {
   error: string | null;
@@ -353,4 +355,110 @@ export async function deleteLeadAction(leadId: string) {
   revalidatePath("/dashboard");
   revalidatePath("/leads");
   redirect("/leads");
+}
+
+export async function researchLeadAction(leadId: string) {
+  const { user, workspace } = await requireWorkspace();
+
+  const lead = await prisma.lead.findFirst({
+    where: { id: leadId, workspaceId: workspace.id },
+    select: {
+      id: true,
+      companyName: true,
+      providerName: true,
+      providerExternalId: true,
+    },
+  });
+
+  if (!lead) throw new Error("Lead not found.");
+  if (lead.providerName !== "google-places" || !lead.providerExternalId) {
+    throw new Error("This lead does not have a Google Places identity for enrichment.");
+  }
+
+  await reserveGooglePlacesDetails(workspace.id);
+  const details = await getGooglePlaceDetails(lead.providerExternalId);
+
+  const normalizedDomain = details.domain;
+  if (normalizedDomain) {
+    const duplicate = await prisma.lead.findFirst({
+      where: {
+        workspaceId: workspace.id,
+        id: { not: lead.id },
+        domainNormalized: normalizedDomain,
+      },
+      select: { companyName: true },
+    });
+    if (duplicate) {
+      throw new Error(`Website already belongs to another lead: ${duplicate.companyName}.`);
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.lead.update({
+      where: { id: lead.id },
+      data: {
+        website: details.website ?? undefined,
+        domain: normalizedDomain ?? undefined,
+        domainNormalized: normalizedDomain ?? undefined,
+        domainKey: normalizedDomain ? `${workspace.id}:${normalizedDomain}` : undefined,
+        location: details.location ?? undefined,
+        industry: details.industry ?? undefined,
+      },
+    });
+
+    const research = await tx.researchRecord.create({
+      data: {
+        workspaceId: workspace.id,
+        leadId: lead.id,
+        status: "COMPLETE",
+        companySummary: details.website
+          ? `Google Places confirms a website for ${details.companyName ?? lead.companyName}.`
+          : `Google Places did not return a website for ${details.companyName ?? lead.companyName}.`,
+        onlinePresence: details.website ?? null,
+        opportunities: details.website ? null : "No website was returned by Google Places.",
+        relevantServices: [],
+        doNotClaim: ["Google Places data alone does not verify company size, revenue, or website quality."],
+        confidence: 85,
+      },
+    });
+
+    const evidence = [
+      details.website ? { type: "website", description: `Website: ${details.website}`, sourceUrl: details.website } : null,
+      details.phone ? { type: "phone", description: `Public business phone: ${details.phone}` } : null,
+      details.location ? { type: "address", description: `Business address: ${details.location}` } : null,
+    ].filter((item): item is { type: string; description: string; sourceUrl?: string } => Boolean(item));
+
+    for (const item of evidence) {
+      await tx.researchEvidence.create({
+        data: {
+          workspaceId: workspace.id,
+          leadId: lead.id,
+          researchRecordId: research.id,
+          type: item.type,
+          description: item.description,
+          sourceUrl: item.sourceUrl ?? null,
+          confidence: 90,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        workspaceId: workspace.id,
+        actorUserId: user.id,
+        action: "lead.enriched",
+        entityType: "lead",
+        entityId: lead.id,
+        metadata: {
+          provider: "google-places",
+          placeId: lead.providerExternalId,
+          websiteFound: Boolean(details.website),
+          phoneFound: Boolean(details.phone),
+          businessStatus: details.businessStatus ?? null,
+        },
+      },
+    });
+  });
+
+  revalidatePath(`/leads/${lead.id}`);
 }
