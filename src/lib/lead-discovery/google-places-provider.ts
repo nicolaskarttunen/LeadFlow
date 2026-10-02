@@ -1,6 +1,7 @@
 import type { DiscoveredLead, LeadDiscoveryProvider, LeadDiscoveryQuery } from "./types";
 
 type GooglePlace = {
+  id?: string;
   displayName?: { text?: string };
   formattedAddress?: string;
   primaryTypeDisplayName?: { text?: string };
@@ -25,7 +26,7 @@ export class GooglePlacesLeadDiscoveryProvider implements LeadDiscoveryProvider 
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.primaryTypeDisplayName,places.types,places.businessStatus",
+        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.primaryTypeDisplayName,places.types,places.businessStatus",
       },
       body: JSON.stringify({
         textQuery: terms,
@@ -51,6 +52,8 @@ export class GooglePlacesLeadDiscoveryProvider implements LeadDiscoveryProvider 
         const companyName = place.displayName!.text!;
         const industry = place.primaryTypeDisplayName?.text ?? query.industry;
         return {
+          provider: this.name,
+          providerPlaceId: place.id,
           companyName,
           industry,
           location: place.formattedAddress ?? query.location,
