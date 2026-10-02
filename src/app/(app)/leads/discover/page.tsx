@@ -6,7 +6,7 @@ import { requireWorkspace } from "@/lib/workspace";
 export default async function DiscoverLeadsPage() {
   const { workspace } = await requireWorkspace();
   const usage = await getGooglePlacesTextSearchUsage(workspace.id);
-  const percent = Math.min(100, (usage.used / usage.limit) * 100);
+  const percent = Math.min(100, (usage.globalUsed / usage.globalLimit) * 100);
 
   return <div className="mx-auto max-w-5xl">
     <Link href="/leads" className="text-sm text-slate-400 transition hover:text-white">← Back to leads</Link>
@@ -16,11 +16,11 @@ export default async function DiscoverLeadsPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="text-sm font-medium text-slate-200">Google Places usage</div>
-          <div className="mt-1 text-xs text-slate-500">Monthly safety limit for company searches</div>
+          <div className="mt-1 text-xs text-slate-500">LeadFlow-wide monthly safety limit · Your workspace: {usage.workspaceUsed.toLocaleString("fi-FI")} searches</div>
         </div>
         <div className="text-right">
-          <div className="text-sm font-semibold text-slate-100">{usage.used.toLocaleString("fi-FI")} / {usage.limit.toLocaleString("fi-FI")}</div>
-          <div className="mt-1 text-xs text-slate-500">{usage.remaining.toLocaleString("fi-FI")} remaining</div>
+          <div className="text-sm font-semibold text-slate-100">{usage.globalUsed.toLocaleString("fi-FI")} / {usage.globalLimit.toLocaleString("fi-FI")}</div>
+          <div className="mt-1 text-xs text-slate-500">{usage.globalRemaining.toLocaleString("fi-FI")} remaining</div>
         </div>
       </div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
