@@ -55,3 +55,24 @@ export async function reserveGooglePlacesTextSearch(workspaceId: string) {
     };
   });
 }
+
+export async function getGooglePlacesTextSearchUsage(workspaceId: string) {
+  const periodStart = currentPeriodStart();
+  const record = await prisma.usageRecord.findUnique({
+    where: {
+      workspaceId_periodStart_metric: {
+        workspaceId,
+        periodStart,
+        metric: METRIC,
+      },
+    },
+    select: { quantity: true },
+  });
+
+  const used = record?.quantity ?? 0;
+  return {
+    used,
+    limit: GOOGLE_PLACES_TEXT_SEARCH_MONTHLY_LIMIT,
+    remaining: Math.max(0, GOOGLE_PLACES_TEXT_SEARCH_MONTHLY_LIMIT - used),
+  };
+}
