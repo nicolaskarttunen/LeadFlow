@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
-import { deleteLeadAction, researchLeadAction, researchWebsiteAction, scoreLeadAction } from "@/app/(app)/leads/actions";
+import { analyzeLeadAction, deleteLeadAction, researchLeadAction, researchWebsiteAction, scoreLeadAction } from "@/app/(app)/leads/actions";
 import { ResearchLeadButton } from "@/components/research-lead-button";
 import { WebsiteResearchButton } from "@/components/website-research-button";
 import { LeadScoreButton } from "@/components/lead-score-button";
+import { AnalyzeLeadButton } from "@/components/analyze-lead-button";
 
 function Detail({
   label,
@@ -92,7 +93,8 @@ export default async function LeadDetailPage({
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {lead.providerExternalId && !latestScore ? <form action={analyzeLeadAction.bind(null, lead.id)}><AnalyzeLeadButton /></form> : null}
           {lead.providerExternalId ? (
             research ? (
               <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-2.5 text-sm font-medium text-emerald-200">
