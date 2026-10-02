@@ -274,6 +274,10 @@ model IdealCustomerProfile {
   excludedIndustries String[]
   excludedCompanies  String[]
   active             Boolean  @default(true)
+  automationEnabled  Boolean  @default(false)
+  leadsPerWeek       Int      @default(25)
+  minimumScore       Int      @default(60)
+  language           String   @default("fi")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   workspace          Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
