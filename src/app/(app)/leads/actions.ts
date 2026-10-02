@@ -679,7 +679,19 @@ export async function analyzeLeadAction(leadId: string) {
     try {
       await researchWebsiteAction(leadId);
     } catch (error) {
-      console.error("Automatic website research failed", { leadId, error });
+      console.error("Automatic website research failed", { leadId, website: lead.website, error });
+      await prisma.auditLog.create({
+        data: {
+          workspaceId: workspace.id,
+          action: "lead.website_research_failed",
+          entityType: "lead",
+          entityId: leadId,
+          metadata: {
+            website: lead.website,
+            error: error instanceof Error ? error.message : "Unknown website research error",
+          },
+        },
+      });
     }
   }
 
