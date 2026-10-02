@@ -57,7 +57,6 @@ export class GooglePlacesLeadDiscoveryProvider implements LeadDiscoveryProvider 
           companyName,
           industry,
           location: place.formattedAddress ?? query.location,
-          companySize: query.companySize,
           description: place.formattedAddress ? `Listed business at ${place.formattedAddress}.` : undefined,
           whyRelevant: `Matched Google Places search for ${[query.industry, query.location].filter(Boolean).join(" in ") || "the selected criteria"}.`,
           potentialService: query.keywords?.length ? query.keywords.join(", ") : undefined,
