@@ -6,6 +6,7 @@ import type { DiscoveredLead } from "@/lib/lead-discovery";
 import { normalizeCompanyName, normalizeDomain } from "@/lib/normalize";
 import { requireWorkspace } from "@/lib/workspace";
 import { reserveGooglePlacesTextSearch } from "@/lib/lead-discovery/usage";
+import { analyzeLeadAction } from "@/app/(app)/leads/actions";
 
 export type DiscoveryActionState = { results: DiscoveredLead[]; error: string | null };
 export type AddDiscoveryState = { message: string | null; error: string | null };
@@ -41,7 +42,15 @@ export async function addDiscoveredLeadsAction(_previousState: AddDiscoveryState
     const lead = await prisma.lead.create({ data: { workspaceId: workspace.id, companyName: item.companyName.trim(), companyNameNormalized: normalizedName, domain: item.domain ?? null, domainNormalized: normalizedDomain, domainKey: normalizedDomain ? `${workspace.id}:${normalizedDomain}` : null, website: item.website ?? null, industry: item.industry ?? null, location: item.location ?? null, companySize: item.companySize ?? null, description: item.description ?? null, whyRelevant: item.whyRelevant ?? null, potentialService: item.potentialService ?? null, providerName: item.provider ?? null, providerExternalId: item.providerPlaceId ?? null, source: item.provider === "google-places" ? "PROVIDER" : "MOCK" } });
     await prisma.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: user.id, action: "lead.discovered", entityType: "lead", entityId: lead.id, metadata: { provider: item.provider ?? "mock", providerPlaceId: item.providerPlaceId ?? null, reviewed: true } } });
     created += 1;
+    if (item.provider === "google-places") {
+      try {
+        await analyzeLeadAction(lead.id);
+      } catch (error) {
+        console.error("Automatic lead analysis failed", { leadId: lead.id, error });
+        await prisma.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: user.id, action: "lead.analysis_failed", entityType: "lead", entityId: lead.id, metadata: { error: error instanceof Error ? error.message : "Unknown automatic analysis error" } } });
+      }
+    }
   }
-  revalidatePath("/dashboard"); revalidatePath("/leads");
+  revalidatePath("/dashboard"); revalidatePath("/leads"); revalidatePath("/leads/newly-found");
   return { error: null, message: `${created} selected lead${created === 1 ? "" : "s"} added${skipped ? `; ${skipped} skipped` : ""}.` };
 }
