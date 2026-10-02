@@ -295,6 +295,8 @@ model Lead {
   companySize           String?
   description           String?
   linkedinUrl           String?
+  providerName         String?
+  providerExternalId   String?
   source                LeadSource  @default(MANUAL)
   status                LeadStatus  @default(NEW)
   whyRelevant           String?
@@ -317,6 +319,7 @@ model Lead {
   @@index([workspaceId, companyNameNormalized])
   @@index([workspaceId, status])
   @@index([workspaceId, discoveredAt])
+  @@unique([workspaceId, providerName, providerExternalId])
 }
 
 model Contact {
