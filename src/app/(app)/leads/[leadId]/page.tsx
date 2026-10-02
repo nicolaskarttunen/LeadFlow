@@ -2,11 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
-import { analyzeLeadAction, deleteLeadAction, researchLeadAction, researchWebsiteAction, scoreLeadAction } from "@/app/(app)/leads/actions";
-import { ResearchLeadButton } from "@/components/research-lead-button";
+import { deleteLeadAction, researchWebsiteAction, scoreLeadAction } from "@/app/(app)/leads/actions";
 import { WebsiteResearchButton } from "@/components/website-research-button";
 import { LeadScoreButton } from "@/components/lead-score-button";
-import { AnalyzeLeadButton } from "@/components/analyze-lead-button";
 
 function Detail({
   label,
@@ -93,13 +91,33 @@ export default async function LeadDetailPage({
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {lead.providerExternalId && !latestScore ? <form action={analyzeLeadAction.bind(null, lead.id)}><AnalyzeLeadButton /></form> : null}
-          {lead.providerExternalId ? (
-            research ? (
-              <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-2.5 text-sm font-medium text-emerald-200">
-                ✓ Tutkittu
-              </div>
+        <div className="flex items-center gap-2">
+          {latestScore ? (
+            <span className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-2.5 text-sm font-medium text-emerald-200">
+              ✓ Analysoitu
+            </span>
+          ) : research ? (
+            <span className="rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-2.5 text-sm font-medium text-amber-200">
+              Analyysi kesken
+            </span>
+          ) : (
+            <span className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-slate-400">
+              Odottaa analyysia
+            </span>
+          )}
+          <details className="relative">
+            <summary className="cursor-pointer list-none rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/[0.04]">
+              ⋯
+            </summary>
+            <div className="absolute right-0 z-20 mt-2 w-44 rounded-xl border border-white/10 bg-slate-950 p-2 shadow-2xl">
+              <form action={deleteLeadAction.bind(null, lead.id)}>
+                <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-300 hover:bg-red-400/10">
+                  Poista liidi
+                </button>
+              </form>
+            </div>
+          </details>
+        </div>
             ) : (
               <form action={researchLeadAction.bind(null, lead.id)}>
                 <ResearchLeadButton />
