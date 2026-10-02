@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
-import { deleteLeadAction } from "@/app/(app)/leads/actions";
+import { deleteLeadAction, researchLeadAction } from "@/app/(app)/leads/actions";
 
 function Detail({
   label,
@@ -89,6 +89,13 @@ export default async function LeadDetailPage({
         </div>
 
         <div className="flex gap-2">
+          {lead.providerName === "google-places" && lead.providerExternalId ? (
+            <form action={researchLeadAction.bind(null, lead.id)}>
+              <button className="rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-400">
+                Tutki yritys
+              </button>
+            </form>
+          ) : null}
           <Link
             href={`/leads/${lead.id}/edit`}
             className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium"
