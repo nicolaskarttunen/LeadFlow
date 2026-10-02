@@ -554,3 +554,67 @@ export async function researchWebsiteAction(leadId: string) {
 
   revalidatePath(`/leads/${lead.id}`);
 }
+
+
+export async function scoreLeadAction(leadId: string) {
+  const { user, workspace } = await requireWorkspace();
+  const lead = await prisma.lead.findFirst({
+    where: { id: leadId, workspaceId: workspace.id },
+    include: {
+      websiteAudits: { where: { status: "COMPLETE" }, orderBy: { createdAt: "desc" }, take: 1 },
+      researchRecords: { where: { status: "COMPLETE" }, orderBy: { createdAt: "desc" }, take: 1 },
+    },
+  });
+  if (!lead) throw new Error("Lead not found.");
+
+  const audit = lead.websiteAudits[0];
+  const research = lead.researchRecords[0];
+  if (!research) throw new Error("Research the company before scoring it.");
+
+  const breakdown = {
+    researchEvidence: { score: 20, max: 20, reason: "Google Places research completed." },
+    websiteKnown: { score: lead.website ? 15 : 0, max: 15, reason: lead.website ? "A public website is known." : "No public website is known." },
+    websiteAudit: { score: audit ? 20 : 0, max: 20, reason: audit ? "Homepage analysis completed." : "Homepage has not been analyzed." },
+    seoBasics: {
+      score: audit ? [audit.pageTitle, audit.metaDescription, audit.h1].filter(Boolean).length * 5 : 0,
+      max: 15,
+      reason: audit ? "Based on detected title, meta description and H1." : "No website audit available.",
+    },
+    contactOpportunity: {
+      score: audit?.ctaNotes?.startsWith("No clear") ? 15 : 5,
+      max: 15,
+      reason: audit?.ctaNotes?.startsWith("No clear") ? "No clear contact link was detected on the homepage." : "A contact path was detected or has not been evaluated.",
+    },
+    profileCompleteness: {
+      score: [lead.industry, lead.location, lead.domain].filter(Boolean).length * 5,
+      max: 15,
+      reason: "Based on known industry, location and domain.",
+    },
+  };
+
+  const total = Object.values(breakdown).reduce((sum, item) => sum + item.score, 0);
+  const confidence = audit ? 85 : 65;
+  const summary = total >= 75
+    ? "Vahva tutkittu liidi nykyisten havaintojen perusteella."
+    : total >= 50
+      ? "Kohtalainen liidi; lisätutkimus voi parantaa arviota."
+      : "Tietoa on vielä vähän luotettavaan arvioon.";
+
+  await prisma.$transaction(async (tx) => {
+    await tx.leadScore.create({
+      data: { workspaceId: workspace.id, leadId: lead.id, total, confidence, breakdown, summary },
+    });
+    await tx.auditLog.create({
+      data: {
+        workspaceId: workspace.id,
+        actorUserId: user.id,
+        action: "lead.scored",
+        entityType: "lead",
+        entityId: lead.id,
+        metadata: { total, confidence },
+      },
+    });
+  });
+
+  revalidatePath(`/leads/${lead.id}`);
+}
