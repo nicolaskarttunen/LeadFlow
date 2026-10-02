@@ -3,7 +3,9 @@ import { SignOutButton } from "@/components/sign-out-button";
 
 const navigation = [
   { href: "/dashboard", label: "Overview", icon: "⌂" },
-  { href: "/leads", label: "Leads", icon: "◎" },
+  { href: "/leads/newly-found", label: "Uudet liidit", icon: "✦" },
+  { href: "/leads", label: "Kaikki liidit", icon: "◎" },
+  { href: "/leads/discover", label: "Etsi liidejä", icon: "⌕" },
 ];
 
 export function AppShell({
