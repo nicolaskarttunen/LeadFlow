@@ -2,103 +2,113 @@
 
 Quality-first B2B lead research and outreach SaaS.
 
-This repository is the runnable MVP foundation:
+LeadFlow is an independent full-stack project focused on helping small businesses find relevant B2B prospects, organize lead research and manage outreach in a structured way.
 
-- Next.js App Router + TypeScript
-- Tailwind CSS
-- PostgreSQL
-- Prisma ORM 7
-- Better Auth email/password authentication
-- Multi-tenant workspace membership
-- Company profile + ICP onboarding
+## Current MVP
+
+The current repository contains the working MVP foundation:
+
+- Email/password authentication
+- Multi-tenant workspaces
+- Company and ideal customer profile onboarding
 - Dashboard
-- Manual lead create/search/view/edit/delete
-- Lead/contact duplicate protection
+- Lead creation, search, editing and deletion
+- Lead and contact duplicate protection
 - Audit logging
-- Database models prepared for research, scoring, campaigns, email approval, sending, replies, suppression, usage and billing
+- Database models prepared for research, scoring, campaigns, email workflows, replies, suppression, usage and billing
 
-## Requirements
+## Tech stack
 
-- Node.js 24 LTS recommended
-- Docker Desktop (for the provided local PostgreSQL setup)
+- Next.js 16
+- React 19
+- TypeScript
+- PostgreSQL
+- Prisma ORM
+- Better Auth
+- Tailwind CSS
+- Zod
+- Docker
+
+## Architecture and security
+
+Lead data is scoped to authenticated workspaces on the server side. The application does not trust a workspace ID supplied by the browser for authorization.
+
+Workspace membership is verified before lead queries or mutations are performed.
+
+Environment variables are kept outside version control and the repository contains only an example environment file.
+
+## Project status
+
+LeadFlow is under active development.
+
+Planned next steps include:
+
+- Lead discovery providers
+- Evidence-backed company and website research
+- Transparent lead scoring
+- AI-assisted personalized email generation
+- Campaign and approval workflows
+- Safe email sending with suppression and rate limits
+- Reply processing and follow-up cancellation
+- Analytics and usage tracking
+
+The project intentionally does not enable unrestricted automated sending at this stage.
+
+## Run locally
+
+Requirements:
+
+- Node.js 24 LTS
+- Docker Desktop
 - npm
 
-## Local setup
+Clone the repository and install dependencies:
 
-1. Copy environment variables:
+```bash
+npm install
+```
 
-   PowerShell:
+Copy the environment template:
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+```bash
+cp .env.example .env
+```
 
-2. Generate a Better Auth secret:
+On Windows PowerShell:
 
-   ```powershell
-   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-   ```
+```powershell
+Copy-Item .env.example .env
+```
 
-   Put the printed value into `BETTER_AUTH_SECRET` in `.env`.
+Start PostgreSQL:
 
-3. Start PostgreSQL:
+```bash
+docker compose up -d
+```
 
-   ```powershell
-   docker compose up -d
-   ```
+Generate Prisma Client and run the migration:
 
-4. Install packages:
+```bash
+npm run db:generate
+npx prisma migrate dev --name init
+```
 
-   ```powershell
-   npm install
-   ```
+Run the checks:
 
-5. Generate Prisma Client:
+```bash
+npm run typecheck
+npm run lint
+npm run build
+```
 
-   ```powershell
-   npm run db:generate
-   ```
+Start development:
 
-6. Create the database migration:
+```bash
+npm run dev
+```
 
-   ```powershell
-   npx prisma migrate dev --name init
-   ```
+Then open http://localhost:3000.
 
-7. Run checks:
+## About
 
-   ```powershell
-   npm run typecheck
-   npm run lint
-   npm run build
-   ```
-
-8. Start development:
-
-   ```powershell
-   npm run dev
-   ```
-
-Open http://localhost:3000.
-
-## Security model in this phase
-
-The UI never supplies a trusted `workspaceId` for lead CRUD. The server resolves an authenticated user, validates workspace membership, and uses that verified workspace ID in every lead query and mutation.
-
-An `leadflow_workspace` HttpOnly cookie is only a workspace preference. It is not authorization: the server verifies the current user is a member before using it.
-
-## What comes next
-
-1. Provider interfaces + CSV import + mock discovery provider
-2. Evidence-backed website analysis
-3. Structured research records
-4. Transparent lead scoring
-5. AI provider abstraction and guarded email generation
-6. Campaign builder + approval queue
-7. Resend provider + suppression/idempotency/rate limits
-8. Reply processing + follow-up cancellation
-9. Analytics
-10. Stripe/usage enforcement
-11. Tests/security hardening/demo mode/docs
-
-Do not add real sending until the approval, suppression and idempotency layers are complete.
+Built as an independent software project by Nicolas Karttunen.
