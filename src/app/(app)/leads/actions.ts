@@ -664,3 +664,28 @@ export async function scoreLeadAction(leadId: string) {
   revalidatePath(`/leads/${lead.id}`);
 }
 
+
+export async function analyzeLeadAction(leadId: string) {
+  await researchLeadAction(leadId);
+
+  const { workspace } = await requireWorkspace();
+  const lead = await prisma.lead.findFirst({
+    where: { id: leadId, workspaceId: workspace.id },
+    select: { website: true },
+  });
+  if (!lead) throw new Error("Lead not found.");
+
+  if (lead.website) {
+    try {
+      await researchWebsiteAction(leadId);
+    } catch (error) {
+      console.error("Automatic website research failed", { leadId, error });
+    }
+  }
+
+  await scoreLeadAction(leadId);
+  revalidatePath("/dashboard");
+  revalidatePath("/leads");
+  revalidatePath("/leads/newly-found");
+  revalidatePath(`/leads/${leadId}`);
+}
