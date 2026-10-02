@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
-import { deleteLeadAction, researchLeadAction, researchWebsiteAction } from "@/app/(app)/leads/actions";
+import { deleteLeadAction, researchLeadAction, researchWebsiteAction, scoreLeadAction } from "@/app/(app)/leads/actions";
 import { ResearchLeadButton } from "@/components/research-lead-button";
 import { WebsiteResearchButton } from "@/components/website-research-button";
+import { LeadScoreButton } from "@/components/lead-score-button";
 
 function Detail({
   label,
@@ -239,14 +240,31 @@ export default async function LeadDetailPage({
 
         <aside className="space-y-5">
           <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
-            <h2 className="font-semibold">Lead score</h2>
+            <h2 className="font-semibold">Liidipisteet</h2>
             <div className="mt-4 text-4xl font-semibold">
               {latestScore ? `${latestScore.total}/100` : "—"}
             </div>
-            <p className="mt-2 text-xs leading-5 text-slate-500">
-              No arbitrary AI score is generated. A transparent breakdown comes
-              with the scoring phase.
-            </p>
+            {latestScore ? (
+              <>
+                <div className="mt-2 text-xs text-slate-500">Varmuus {latestScore.confidence ?? "—"} %</div>
+                <p className="mt-3 text-sm leading-6 text-slate-300">{latestScore.summary}</p>
+                <div className="mt-4 space-y-2">
+                  {Object.entries(latestScore.breakdown as Record<string, { score: number; max: number; reason: string }>).map(([key, item]) => (
+                    <div key={key} className="rounded-xl border border-white/10 p-3">
+                      <div className="flex justify-between gap-3 text-xs"><span className="text-slate-400">{key}</span><span>{item.score}/{item.max}</span></div>
+                      <div className="mt-1 text-xs leading-5 text-slate-500">{item.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : research ? (
+              <>
+                <p className="mt-2 text-xs leading-5 text-slate-500">Pisteet perustuvat tallennettuihin havaintoihin, eivät mielivaltaiseen AI-arvioon.</p>
+                <form action={scoreLeadAction.bind(null, lead.id)}><LeadScoreButton /></form>
+              </>
+            ) : (
+              <p className="mt-2 text-xs leading-5 text-slate-500">Tutki yritys ensin, jotta pisteytys voidaan laskea.</p>
+            )}
           </section>
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
