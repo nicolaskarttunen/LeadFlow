@@ -89,9 +89,12 @@ export default async function LeadDetailPage({
         </div>
 
         <div className="flex gap-2">
-          {lead.providerName === "google-places" && lead.providerExternalId ? (
+          {lead.providerExternalId ? (
             <form action={researchLeadAction.bind(null, lead.id)}>
-              <button className="rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-400">
+              <button
+                type="submit"
+                className="rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:bg-violet-400"
+              >
                 Tutki yritys
               </button>
             </form>
