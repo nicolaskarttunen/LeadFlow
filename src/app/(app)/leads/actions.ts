@@ -12,6 +12,7 @@ import {
 import { requireWorkspace } from "@/lib/workspace";
 import { getGooglePlaceDetails } from "@/lib/lead-discovery/google-place-details";
 import { reserveGooglePlacesDetails } from "@/lib/lead-discovery/place-details-usage";
+import { researchPublicWebsite } from "@/lib/lead-research/website-research";
 
 export type LeadActionState = {
   error: string | null;
@@ -470,6 +471,83 @@ export async function researchLeadAction(leadId: string) {
           phoneFound: Boolean(details.phone),
           businessStatus: details.businessStatus ?? null,
         },
+      },
+    });
+  });
+
+  revalidatePath(`/leads/${lead.id}`);
+}
+
+
+export async function researchWebsiteAction(leadId: string) {
+  const { user, workspace } = await requireWorkspace();
+  const lead = await prisma.lead.findFirst({
+    where: { id: leadId, workspaceId: workspace.id },
+    select: { id: true, website: true },
+  });
+  if (!lead) throw new Error("Lead not found.");
+  if (!lead.website) throw new Error("This lead does not have a website.");
+
+  const existingAudit = await prisma.websiteAudit.findFirst({
+    where: { workspaceId: workspace.id, leadId: lead.id, status: "COMPLETE" },
+    select: { id: true },
+  });
+  if (existingAudit) {
+    revalidatePath(`/leads/${lead.id}`);
+    return;
+  }
+
+  const result = await researchPublicWebsite(lead.website);
+
+  await prisma.$transaction(async (tx) => {
+    const audit = await tx.websiteAudit.create({
+      data: {
+        workspaceId: workspace.id,
+        leadId: lead.id,
+        status: "COMPLETE",
+        url: result.finalUrl,
+        httpsEnabled: result.httpsEnabled,
+        pageTitle: result.pageTitle,
+        metaDescription: result.metaDescription,
+        h1: result.h1,
+        ctaNotes: result.hasContactLink ? "A contact link was detected on the homepage." : "No clear contact link was detected on the homepage.",
+        seoNotes: [
+          result.pageTitle ? null : "Homepage title was not detected.",
+          result.metaDescription ? null : "Meta description was not detected.",
+          result.h1 ? null : "H1 heading was not detected.",
+        ].filter(Boolean).join(" ") || "Basic homepage SEO elements were detected.",
+      },
+    });
+
+    const evidence = [
+      result.pageTitle ? { type: "page_title", description: `Homepage title: ${result.pageTitle}` } : null,
+      result.h1 ? { type: "h1", description: `Homepage H1: ${result.h1}` } : null,
+      ...result.emails.map((email) => ({ type: "public_email", description: `Public email found on homepage: ${email}` })),
+      { type: "contact_path", description: result.hasContactLink ? "Homepage contains a contact link." : "No clear contact link was detected on the homepage." },
+    ].filter((item): item is { type: string; description: string } => Boolean(item));
+
+    for (const item of evidence) {
+      await tx.researchEvidence.create({
+        data: {
+          workspaceId: workspace.id,
+          leadId: lead.id,
+          websiteAuditId: audit.id,
+          type: item.type,
+          description: item.description,
+          sourceUrl: result.finalUrl,
+          confidence: 90,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        workspaceId: workspace.id,
+        actorUserId: user.id,
+        action: "lead.website_researched",
+        entityType: "lead",
+        entityId: lead.id,
+        metadata: { url: result.finalUrl, publicEmailsFound: result.emails.length },
       },
     });
   });
