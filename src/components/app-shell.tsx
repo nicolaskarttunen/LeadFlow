@@ -1,20 +1,29 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { SignOutButton } from "@/components/sign-out-button";
 
-const leadNavigation = [
-  { href: "/leads/newly-found", label: "Uudet liidit", icon: "✦" },
-  { href: "/leads", label: "Kaikki liidit", icon: "◎" },
-  { href: "/leads/discover", label: "Etsi liidejä", icon: "⌕" },
-];
+function Badge({ count }: { count: number }) {
+  if (count < 1) return null;
+  return <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-violet-500 px-1.5 text-[10px] font-bold text-white shadow-sm shadow-violet-950/50">{count > 99 ? "99+" : count}</span>;
+}
 
-function NavLink({ href, label, icon }: { href: string; label: string; icon: string }) {
-  return <Link href={href} className="group flex min-w-max items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/[0.06] hover:text-white">
+function NavLink({ href, label, icon, badge = 0 }: { href: string; label: string; icon: string; badge?: number }) {
+  const pathname = usePathname();
+  const active = pathname === href;
+  return <Link href={href} className={`group flex min-w-max items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${active ? "bg-white/[0.07] text-white" : "text-slate-300 hover:bg-white/[0.06] hover:text-white"}`}>
     <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.025] text-xs text-slate-400 group-hover:text-violet-300">{icon}</span>
-    {label}
+    <span>{label}</span><Badge count={badge} />
   </Link>;
 }
 
-export function AppShell({ workspaceName, userName, children }: { workspaceName: string; userName: string; children: React.ReactNode }) {
+export function AppShell({ workspaceName, userName, newLeadCount, children }: { workspaceName: string; userName: string; newLeadCount: number; children: React.ReactNode }) {
+  const pathname = usePathname();
+  const onLeadPage = pathname.startsWith("/leads");
+  const [leadsOpen, setLeadsOpen] = useState(onLeadPage);
+
   return <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
     <aside className="border-b border-white/[0.08] bg-black/20 px-4 py-5 backdrop-blur-xl lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
       <div>
@@ -32,8 +41,19 @@ export function AppShell({ workspaceName, userName, children }: { workspaceName:
         <nav className="mt-6 flex gap-2 overflow-x-auto lg:flex-col">
           <div className="hidden px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600 lg:block">Päänäkymä</div>
           <NavLink href="/dashboard" label="Yleiskatsaus" icon="⌂" />
-          <div className="mt-3 hidden px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600 lg:block">Liidit</div>
-          {leadNavigation.map((item) => <NavLink key={item.href} {...item} />)}
+
+          <div className="mt-3 hidden px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600 lg:block">Prospektointi</div>
+          <button type="button" onClick={() => setLeadsOpen((open) => !open)} aria-expanded={leadsOpen} className={`group flex min-w-max items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${onLeadPage ? "text-white" : "text-slate-300 hover:bg-white/[0.06] hover:text-white"}`}>
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.025] text-xs text-slate-400 group-hover:text-violet-300">◎</span>
+            <span>Liidit</span><Badge count={newLeadCount} />
+            <span className={`ml-1 text-[10px] text-slate-500 transition-transform ${leadsOpen ? "rotate-90" : ""}`}>›</span>
+          </button>
+
+          {leadsOpen && <div className="ml-4 space-y-1 border-l border-white/[0.08] pl-2">
+            <NavLink href="/leads/newly-found" label="Uudet liidit" icon="✦" badge={newLeadCount} />
+            <NavLink href="/leads" label="Kaikki liidit" icon="◎" />
+            <NavLink href="/leads/discover" label="Etsi liidejä" icon="⌕" />
+          </div>}
         </nav>
       </div>
 
