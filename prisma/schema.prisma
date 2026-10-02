@@ -142,6 +142,7 @@ model User {
   email                String            @unique
   emailVerified        Boolean           @default(false)
   image                String?
+  locale               String            @default("fi")
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
   sessions             Session[]
