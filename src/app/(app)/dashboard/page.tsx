@@ -5,8 +5,9 @@ import { StatCard } from "@/components/stat-card";
 
 export default async function DashboardPage() {
   const { workspace } = await requireWorkspace();
-  const [totalLeads, qualifiedLeads, reviewDrafts, replies, recentLeads] = await Promise.all([
+  const [totalLeads, newLeads, qualifiedLeads, reviewDrafts, replies, recentLeads] = await Promise.all([
     prisma.lead.count({ where: { workspaceId: workspace.id } }),
+    prisma.lead.count({ where: { workspaceId: workspace.id, status: "NEW" } }),
     prisma.lead.count({ where: { workspaceId: workspace.id, status: "QUALIFIED" } }),
     prisma.emailDraft.count({ where: { workspaceId: workspace.id, status: "NEEDS_REVIEW" } }),
     prisma.reply.count({ where: { workspaceId: workspace.id } }),
@@ -31,6 +32,13 @@ export default async function DashboardPage() {
         </div>
         <Link href="/leads/new" className="rounded-xl bg-violet-500 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-lg shadow-violet-950/30 transition hover:bg-violet-400">+ Add lead</Link>
       </div>
+
+      {newLeads > 0 ? (
+        <Link href="/leads/newly-found" className="mt-8 flex items-center justify-between gap-4 rounded-2xl border border-violet-400/20 bg-violet-400/[0.07] px-5 py-4 transition hover:bg-violet-400/[0.11]">
+          <div><div className="text-sm font-semibold text-violet-100">{newLeads} uutta liidiä odottaa</div><div className="mt-1 text-xs text-slate-400">Avaa uudet prospektit, tutkimustila ja pisteet.</div></div>
+          <span className="text-sm font-semibold text-violet-300">Avaa →</span>
+        </Link>
+      ) : null}
 
       <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total leads" value={totalLeads} hint="Prospects in this workspace" />
