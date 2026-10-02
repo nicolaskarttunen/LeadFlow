@@ -2,10 +2,11 @@ import Link from "next/link";
 import { SignOutButton } from "@/components/sign-out-button";
 
 const navigation = [
-  { href: "/dashboard", label: "Overview", icon: "⌂" },
+  { href: "/dashboard", label: "Yleiskatsaus", icon: "⌂" },
   { href: "/leads/newly-found", label: "Uudet liidit", icon: "✦" },
   { href: "/leads", label: "Kaikki liidit", icon: "◎" },
   { href: "/leads/discover", label: "Etsi liidejä", icon: "⌕" },
+  { href: "/settings/prospecting", label: "Prospektointiasetukset", icon: "⚙" },
 ];
 
 export function AppShell({
@@ -25,12 +26,12 @@ export function AppShell({
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-500 text-sm font-bold text-white shadow-lg shadow-violet-950/40">LF</span>
             <span>
               <span className="block text-[15px] font-semibold tracking-tight">LeadFlow</span>
-              <span className="block text-[11px] text-slate-400">Research & outreach</span>
+              <span className="block text-[11px] text-slate-400">Prospektointi & myynti</span>
             </span>
           </Link>
 
           <div className="mt-7 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3.5">
-            <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">Workspace</div>
+            <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">Työtila</div>
             <div className="mt-2 truncate text-sm font-semibold text-slate-100">{workspaceName}</div>
             <div className="mt-1 truncate text-xs text-slate-400">{userName}</div>
           </div>
