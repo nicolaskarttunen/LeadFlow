@@ -5,18 +5,22 @@ import { getLeadDiscoveryProvider } from "@/lib/lead-discovery";
 import type { DiscoveredLead } from "@/lib/lead-discovery";
 import { normalizeCompanyName, normalizeDomain } from "@/lib/normalize";
 import { requireWorkspace } from "@/lib/workspace";
+import { reserveGooglePlacesTextSearch } from "@/lib/lead-discovery/usage";
 
 export type DiscoveryActionState = { results: DiscoveredLead[]; error: string | null };
 export type AddDiscoveryState = { message: string | null; error: string | null };
 
 export async function discoverLeadsAction(_previousState: DiscoveryActionState, formData: FormData): Promise<DiscoveryActionState> {
-  await requireWorkspace();
+  const { workspace } = await requireWorkspace();
   const industry = String(formData.get("industry") ?? "").trim();
   const location = String(formData.get("location") ?? "").trim();
   const companySize = String(formData.get("companySize") ?? "").trim();
   const keywords = String(formData.get("keywords") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
   if (!industry && !location && keywords.length === 0) return { results: [], error: "Add an industry, location or keyword to start discovery." };
   const provider = getLeadDiscoveryProvider();
+  if (provider.name === "google-places") {
+    await reserveGooglePlacesTextSearch(workspace.id);
+  }
   const results = await provider.discover({ industry: industry || undefined, location: location || undefined, companySize: companySize || undefined, keywords, limit: 10 });
   return { results, error: null };
 }
