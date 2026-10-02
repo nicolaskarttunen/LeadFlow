@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
-import { deleteLeadAction, researchLeadAction } from "@/app/(app)/leads/actions";
+import { deleteLeadAction, researchLeadAction, researchWebsiteAction } from "@/app/(app)/leads/actions";
 import { ResearchLeadButton } from "@/components/research-lead-button";
+import { WebsiteResearchButton } from "@/components/website-research-button";
 
 function Detail({
   label,
@@ -71,6 +72,7 @@ export default async function LeadDetailPage({
   const primaryContact = lead.contacts.find((contact) => contact.isPrimary);
   const latestScore = lead.scores[0];
   const research = lead.researchRecords[0];
+  const websiteAudit = lead.websiteAudits[0];
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -147,6 +149,34 @@ export default async function LeadDetailPage({
               </p>
             ) : null}
           </section>
+
+          {lead.website ? (
+            <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold">Verkkosivuanalyysi</h2>
+                  <p className="mt-1 text-xs text-slate-500">Perustuu yrityksen julkisen etusivun havaintoihin.</p>
+                </div>
+                {websiteAudit ? (
+                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1 text-xs font-medium text-emerald-200">Analyysi valmis</span>
+                ) : (
+                  <form action={researchWebsiteAction.bind(null, lead.id)}>
+                    <WebsiteResearchButton />
+                  </form>
+                )}
+              </div>
+              {websiteAudit ? (
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <Detail label="HTTPS" value={websiteAudit.httpsEnabled === null ? null : websiteAudit.httpsEnabled ? "Kyllä" : "Ei"} />
+                  <Detail label="Sivun otsikko" value={websiteAudit.pageTitle} />
+                  <Detail label="H1" value={websiteAudit.h1} />
+                  <Detail label="Meta description" value={websiteAudit.metaDescription} />
+                  <div className="sm:col-span-2 rounded-xl border border-white/10 p-4 text-sm text-slate-300">{websiteAudit.seoNotes ?? "—"}</div>
+                  <div className="sm:col-span-2 rounded-xl border border-white/10 p-4 text-sm text-slate-300">{websiteAudit.ctaNotes ?? "—"}</div>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
             <div className="flex items-center justify-between gap-3">
