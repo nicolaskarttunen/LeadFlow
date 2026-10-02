@@ -558,63 +558,109 @@ export async function researchWebsiteAction(leadId: string) {
 
 export async function scoreLeadAction(leadId: string) {
   const { user, workspace } = await requireWorkspace();
-  const lead = await prisma.lead.findFirst({
-    where: { id: leadId, workspaceId: workspace.id },
-    include: {
-      websiteAudits: { where: { status: "COMPLETE" }, orderBy: { createdAt: "desc" }, take: 1 },
-      researchRecords: { where: { status: "COMPLETE" }, orderBy: { createdAt: "desc" }, take: 1 },
-    },
-  });
+  const [lead, profile] = await Promise.all([
+    prisma.lead.findFirst({
+      where: { id: leadId, workspaceId: workspace.id },
+      include: {
+        contacts: { where: { isPrimary: true }, take: 1 },
+        websiteAudits: { where: { status: "COMPLETE" }, orderBy: { createdAt: "desc" }, take: 1 },
+        researchRecords: { where: { status: "COMPLETE" }, orderBy: { createdAt: "desc" }, take: 1 },
+      },
+    }),
+    prisma.idealCustomerProfile.findFirst({
+      where: { workspaceId: workspace.id, active: true },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
   if (!lead) throw new Error("Lead not found.");
-
-  const audit = lead.websiteAudits[0];
+  if (!profile) throw new Error("Create an active prospecting profile before scoring leads.");
   const research = lead.researchRecords[0];
   if (!research) throw new Error("Research the company before scoring it.");
+  const audit = lead.websiteAudits[0];
+
+  const norm = (value?: string | null) => (value ?? "").toLocaleLowerCase("fi-FI").trim();
+  const containsAny = (value: string | null | undefined, wanted: string[]) => {
+    const haystack = norm(value);
+    return wanted.some((item) => haystack.includes(norm(item)) || norm(item).includes(haystack));
+  };
+  const excludedIndustry = containsAny(lead.industry, profile.excludedIndustries);
+  const excludedCompany = profile.excludedCompanies.some((item) => norm(lead.companyName).includes(norm(item)));
+  const industryMatch = profile.industries.length === 0 ? null : containsAny(lead.industry, profile.industries);
+  const regionMatch = profile.regions.length === 0 ? null : containsAny(lead.location, profile.regions);
+  const sizeMatch = !profile.companySize ? null : (lead.companySize ? norm(lead.companySize) === norm(profile.companySize) : null);
+
+  const fitParts = [
+    { configured: profile.industries.length > 0, match: industryMatch, weight: 20 },
+    { configured: profile.regions.length > 0, match: regionMatch, weight: 15 },
+    { configured: Boolean(profile.companySize), match: sizeMatch, weight: 5 },
+  ];
+  let fitScore = 0;
+  let fitMaxConfigured = 0;
+  for (const part of fitParts) {
+    if (!part.configured) continue;
+    fitMaxConfigured += part.weight;
+    if (part.match === true) fitScore += part.weight;
+  }
+  if (fitMaxConfigured === 0) fitScore = 20;
+  else if (fitMaxConfigured < 40) fitScore = Math.round((fitScore / fitMaxConfigured) * 40);
+
+  const keywordText = [lead.potentialService, lead.description, research.opportunities, audit?.seoNotes, audit?.ctaNotes].filter(Boolean).join(" ");
+  const matchedKeywords = profile.keywords.filter((keyword) => containsAny(keywordText, [keyword]));
+  const opportunityScore = profile.keywords.length
+    ? Math.min(30, Math.round((matchedKeywords.length / profile.keywords.length) * 30))
+    : audit ? 15 : 5;
+
+  const contactScore = lead.contacts[0]?.email ? 15 : audit ? 7 : lead.website ? 4 : 0;
+  const evidenceScore = Math.min(15, (research ? 8 : 0) + (audit ? 5 : 0) + (lead.providerExternalId ? 2 : 0));
 
   const breakdown = {
-    researchEvidence: { score: 20, max: 20, reason: "Google Places research completed." },
-    websiteKnown: { score: lead.website ? 15 : 0, max: 15, reason: lead.website ? "A public website is known." : "No public website is known." },
-    websiteAudit: { score: audit ? 20 : 0, max: 20, reason: audit ? "Homepage analysis completed." : "Homepage has not been analyzed." },
-    seoBasics: {
-      score: audit ? [audit.pageTitle, audit.metaDescription, audit.h1].filter(Boolean).length * 5 : 0,
-      max: 15,
-      reason: audit ? "Based on detected title, meta description and H1." : "No website audit available.",
+    icpFit: {
+      score: excludedIndustry || excludedCompany ? 0 : fitScore,
+      max: 40,
+      reason: excludedIndustry || excludedCompany
+        ? "Yritys osuu prospektointiprofiilin poissulkuun."
+        : `Sopivuus asetuksiin: toimiala ${industryMatch === null ? "ei arvioitavissa" : industryMatch ? "osuu" : "ei osu"}, alue ${regionMatch === null ? "ei arvioitavissa" : regionMatch ? "osuu" : "ei osu"}, koko ${sizeMatch === null ? "ei arvioitavissa" : sizeMatch ? "osuu" : "ei osu"}.`,
     },
-    contactOpportunity: {
-      score: audit?.ctaNotes?.startsWith("No clear") ? 15 : 5,
-      max: 15,
-      reason: audit?.ctaNotes?.startsWith("No clear") ? "No clear contact link was detected on the homepage." : "A contact path was detected or has not been evaluated.",
+    opportunity: {
+      score: opportunityScore,
+      max: 30,
+      reason: profile.keywords.length
+        ? `Havaittuja tarpeita/signaaleja: ${matchedKeywords.length ? matchedKeywords.join(", ") : "ei vielä vahvistettu"}.`
+        : "Tarvesignaaleja ei ole määritetty profiilissa; pisteet perustuvat saatavilla olevaan verkkosivuanalyysiin.",
     },
-    profileCompleteness: {
-      score: [lead.industry, lead.location, lead.domain].filter(Boolean).length * 5,
+    contactability: {
+      score: contactScore,
       max: 15,
-      reason: "Based on known industry, location and domain.",
+      reason: lead.contacts[0]?.email ? "Ensisijainen sähköposti on tiedossa." : lead.website ? "Verkkosivu on tiedossa, mutta ensisijaista sähköpostia ei ole vahvistettu." : "Vahvistettua yhteydenottokanavaa ei ole.",
+    },
+    evidence: {
+      score: evidenceScore,
+      max: 15,
+      reason: `Tutkimus ${research ? "valmis" : "puuttuu"}, verkkosivuanalyysi ${audit ? "valmis" : "puuttuu"}.`,
     },
   };
 
-  const total = Object.values(breakdown).reduce((sum, item) => sum + item.score, 0);
-  const confidence = audit ? 85 : 65;
-  const summary = total >= 75
-    ? "Vahva tutkittu liidi nykyisten havaintojen perusteella."
-    : total >= 50
-      ? "Kohtalainen liidi; lisätutkimus voi parantaa arviota."
-      : "Tietoa on vielä vähän luotettavaan arvioon.";
+  let total = Object.values(breakdown).reduce((sum, item) => sum + item.score, 0);
+  if (excludedIndustry || excludedCompany) total = 0;
+  const confidenceSignals = [Boolean(lead.industry), Boolean(lead.location), Boolean(lead.companySize), Boolean(research), Boolean(audit)];
+  const confidence = Math.round((confidenceSignals.filter(Boolean).length / confidenceSignals.length) * 100);
+  const summary = excludedIndustry || excludedCompany
+    ? "Liidi on prospektointiprofiilin poissulkujen ulkopuolella."
+    : total >= profile.minimumScore
+      ? "Liidi ylittää nykyisen prospektointiprofiilin minimipisterajan."
+      : "Liidi jää nykyisen prospektointiprofiilin minimipisterajan alle.";
 
   await prisma.$transaction(async (tx) => {
-    await tx.leadScore.create({
-      data: { workspaceId: workspace.id, leadId: lead.id, total, confidence, breakdown, summary },
-    });
+    await tx.leadScore.create({ data: { workspaceId: workspace.id, leadId: lead.id, total, confidence, breakdown, summary } });
     await tx.auditLog.create({
       data: {
-        workspaceId: workspace.id,
-        actorUserId: user.id,
-        action: "lead.scored",
-        entityType: "lead",
-        entityId: lead.id,
-        metadata: { total, confidence },
+        workspaceId: workspace.id, actorUserId: user.id, action: "lead.scored", entityType: "lead", entityId: lead.id,
+        metadata: { total, confidence, profileId: profile.id, minimumScore: profile.minimumScore },
       },
     });
   });
-
+  revalidatePath("/dashboard");
+  revalidatePath("/leads/newly-found");
   revalidatePath(`/leads/${lead.id}`);
 }
+
