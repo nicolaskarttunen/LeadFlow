@@ -375,6 +375,20 @@ export async function researchLeadAction(leadId: string) {
     throw new Error("This lead does not have a Google Places identity for enrichment.");
   }
 
+  const existingResearch = await prisma.researchRecord.findFirst({
+    where: {
+      workspaceId: workspace.id,
+      leadId: lead.id,
+      status: "COMPLETE",
+    },
+    select: { id: true },
+  });
+
+  if (existingResearch) {
+    revalidatePath(`/leads/${lead.id}`);
+    return;
+  }
+
   await reserveGooglePlacesDetails(workspace.id);
   const details = await getGooglePlaceDetails(lead.providerExternalId);
 
