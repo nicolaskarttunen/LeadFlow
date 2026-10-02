@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
 import { deleteLeadAction, researchLeadAction } from "@/app/(app)/leads/actions";
+import { ResearchLeadButton } from "@/components/research-lead-button";
 
 function Detail({
   label,
@@ -90,14 +91,15 @@ export default async function LeadDetailPage({
 
         <div className="flex gap-2">
           {lead.providerExternalId ? (
-            <form action={researchLeadAction.bind(null, lead.id)}>
-              <button
-                type="submit"
-                className="rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:bg-violet-400"
-              >
-                Tutki yritys
-              </button>
-            </form>
+            research ? (
+              <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-2.5 text-sm font-medium text-emerald-200">
+                ✓ Tutkittu
+              </div>
+            ) : (
+              <form action={researchLeadAction.bind(null, lead.id)}>
+                <ResearchLeadButton />
+              </form>
+            )
           ) : null}
           <Link
             href={`/leads/${lead.id}/edit`}
@@ -147,7 +149,14 @@ export default async function LeadDetailPage({
           </section>
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
-            <h2 className="font-semibold">Research & evidence</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-semibold">Research & evidence</h2>
+              {research ? (
+                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1 text-xs font-medium text-emerald-200">
+                  Tutkimus valmis
+                </span>
+              ) : null}
+            </div>
             {!research ? (
               <p className="mt-3 text-sm leading-6 text-slate-500">
                 No research record yet. The next development phase will add the
