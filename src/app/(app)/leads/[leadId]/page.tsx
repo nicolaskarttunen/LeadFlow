@@ -118,24 +118,6 @@ export default async function LeadDetailPage({
             </div>
           </details>
         </div>
-            ) : (
-              <form action={researchLeadAction.bind(null, lead.id)}>
-                <ResearchLeadButton />
-              </form>
-            )
-          ) : null}
-          <Link
-            href={`/leads/${lead.id}/edit`}
-            className="rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium"
-          >
-            Edit
-          </Link>
-          <form action={deleteLeadAction.bind(null, lead.id)}>
-            <button className="rounded-xl border border-red-400/20 bg-red-400/5 px-4 py-2.5 text-sm font-medium text-red-200">
-              Delete
-            </button>
-          </form>
-        </div>
       </div>
 
       <div className="mt-8 grid gap-5 lg:grid-cols-[1fr_340px]">
