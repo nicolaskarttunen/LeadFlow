@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { SignOutButton } from "@/components/sign-out-button";
+import { LeadFlowCopilot } from "@/components/leadflow-copilot";
 
 type Locale = "fi" | "en";
 const copy = {
@@ -64,5 +65,6 @@ export function AppShell({ workspaceName, userName, newLeadCount, locale, childr
       </div>
     </aside>
     <main className="min-w-0 p-5 sm:p-7 lg:p-10 xl:p-12">{children}</main>
+    <LeadFlowCopilot locale={locale} />
   </div>;
 }
