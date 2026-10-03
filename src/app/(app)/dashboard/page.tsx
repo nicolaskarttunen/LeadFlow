@@ -8,7 +8,7 @@ export default async function DashboardPage() {
   const [currentUser, totalLeads, newLeads, qualifiedLeads, reviewDrafts, replies, recentLeads] = await Promise.all([
     prisma.user.findUnique({ where: { id: user.id }, select: { locale: true } }),
     prisma.lead.count({ where: { workspaceId: workspace.id } }),
-    prisma.lead.count({ where: { workspaceId: workspace.id, status: "NEW" } }),
+    prisma.lead.count({ where: { workspaceId: workspace.id, reviewStatus: "PENDING" } }),
     prisma.lead.count({ where: { workspaceId: workspace.id, status: "QUALIFIED" } }),
     prisma.emailDraft.count({ where: { workspaceId: workspace.id, status: "NEEDS_REVIEW" } }),
     prisma.reply.count({ where: { workspaceId: workspace.id } }),
@@ -17,13 +17,13 @@ export default async function DashboardPage() {
   const fi = currentUser?.locale !== "en";
   const t = fi ? {
     eyebrow:"Yleiskatsaus", title:"Myynnin tilanne", intro:"Seuraa uusia liidejä, prospektoinnin etenemistä ja viimeisimpiä asiakkaita yhdestä paikasta.", find:"Etsi liidejä",
-    waiting:`${newLeads} uutta liidiä odottaa`, waitingHint:"Avaa uudet prospektit, tutkimustila ja pisteet.", open:"Avaa →",
+    waiting:`${newLeads} uutta liidiä odottaa`, waitingHint:"Tarkista uudet liidit, pisteet ja tärkeimmät havainnot.", open:"Avaa →",
     total:"Liidejä", totalHint:"Prospektit tässä työtilassa", qualified:"Hyväksytyt", qualifiedHint:"Valmiina seuraavaan vaiheeseen", review:"Tarkistettavat", reviewHint:"Luonnokset odottavat hyväksyntää", replies:"Vastaukset", repliesHint:"Saadut vastaukset",
     recent:"Viimeisimmät liidit", recentHint:"Uusimmat prospektit ja niiden nykyiset pisteet.", all:"Näytä kaikki →", empty:"Liidilista on tyhjä", emptyHint:"Etsi ensimmäiset prospektit ja aloita myyntiputken rakentaminen.", first:"Etsi ensimmäiset liidit",
     company:"Yritys", industry:"Toimiala", score:"Pisteet", noContact:"Yhteystietoa ei lisätty", unspecified:"Ei määritetty", notScored:"Ei pisteytetty"
   } : {
     eyebrow:"Overview", title:"Sales overview", intro:"Track new leads, prospecting progress and recent prospects in one place.", find:"Find leads",
-    waiting:`${newLeads} new leads waiting`, waitingHint:"Review new prospects, research status and scores.", open:"Open →",
+    waiting:`${newLeads} new leads waiting`, waitingHint:"Review new leads, scores and key findings.", open:"Open →",
     total:"Leads", totalHint:"Prospects in this workspace", qualified:"Qualified", qualifiedHint:"Ready for the next step", review:"Needs review", reviewHint:"Drafts waiting for approval", replies:"Replies", repliesHint:"Responses received",
     recent:"Recent leads", recentHint:"Your latest prospects and their current score.", all:"View all →", empty:"Your pipeline is empty", emptyHint:"Find your first prospects to start building a focused sales pipeline.", first:"Find first leads",
     company:"Company", industry:"Industry", score:"Score", noContact:"Contact not added", unspecified:"Not specified", notScored:"Not scored"
