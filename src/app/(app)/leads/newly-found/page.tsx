@@ -37,23 +37,22 @@ export default async function NewlyFoundLeadsPage() {
       <details className="group mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02]">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.025]">
           <div>
-            <span>{fi ? "Suodattimet" : "Filters"}</span>
-            <span className="ml-3 text-xs font-normal text-slate-500">{fi ? "Pisteisiin perustuva käsittely" : "Score-based review"}</span>
+            <span>{fi ? "Käsittele liidejä" : "Review leads"}</span>
+            <span className="ml-3 text-xs font-normal text-slate-500">{fi ? "Valitse liidit pisteiden perusteella" : "Select leads by score"}</span>
           </div>
           <span className="text-slate-500 transition group-open:rotate-180">⌄</span>
         </summary>
         <div className="border-t border-white/[0.07] px-4 py-4">
-          <p className="max-w-2xl text-xs leading-5 text-slate-500">{fi ? "Valitse pisteraja ja suorita haluamasi toiminto. Vain pisteytetyt, päätöstä odottavat liidit käsitellään." : "Choose a score threshold and apply the action you want. Only scored leads still awaiting review are affected."}</p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <form action={keepLeadsAboveScoreAction} className="flex items-end gap-2">
-              <label className="text-xs text-slate-400"><span className="mb-1 block">{fi ? "Pisteraja" : "Score threshold"}</span><input name="scoreThreshold" type="number" min="0" max="100" defaultValue="80" className="w-24 rounded-lg border border-white/[0.1] bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-violet-400/50" /></label>
-              <button className="rounded-lg bg-violet-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-400">{fi ? "Pidä ≥ raja" : "Keep ≥ threshold"}</button>
-            </form>
-            <form action={rejectLeadsBelowScoreAction} className="flex items-end gap-2">
-              <label className="text-xs text-slate-400"><span className="mb-1 block">{fi ? "Pisteraja" : "Score threshold"}</span><input name="scoreThreshold" type="number" min="0" max="100" defaultValue="80" className="w-24 rounded-lg border border-white/[0.1] bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-violet-400/50" /></label>
-              <button className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.07]">{fi ? "Hylkää < raja" : "Reject < threshold"}</button>
-            </form>
-          </div>
+          <p className="max-w-2xl text-xs leading-5 text-slate-500">{fi ? "Anna pisteraja ja valitse, haluatko pitää rajan saavuttavat liidit vai hylätä sen alle jäävät. Mitään ei tehdä automaattisesti." : "Set a score threshold, then choose whether to keep leads meeting it or reject leads below it. Nothing happens automatically."}</p>
+          <form className="mt-4 flex flex-wrap items-end gap-3">
+            <label className="text-xs text-slate-400">
+              <span className="mb-1 block">{fi ? "Pisteraja" : "Score threshold"}</span>
+              <input name="scoreThreshold" type="number" min="0" max="100" defaultValue="80" className="w-28 rounded-lg border border-white/[0.1] bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-400/50" />
+            </label>
+            <button formAction={keepLeadsAboveScoreAction} className="rounded-lg bg-violet-500 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-violet-400">{fi ? "Pidä kaikki rajan saavuttavat" : "Keep all meeting threshold"}</button>
+            <button formAction={rejectLeadsBelowScoreAction} className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.07]">{fi ? "Hylkää kaikki rajan alle jäävät" : "Reject all below threshold"}</button>
+          </form>
+          <p className="mt-3 text-[11px] text-slate-600">{fi ? "Pisteyttämättömiä liidejä ei käsitellä massatoiminnoilla." : "Unscored leads are not affected by bulk actions."}</p>
         </div>
       </details>
 
