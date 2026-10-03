@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
 import { getCurrentLocale } from "@/lib/current-locale";
 import { keepLeadAction, rejectLeadAction, keepLeadsAboveScoreAction, rejectLeadsBelowScoreAction } from "./actions";
+import { ScoreThresholdInput } from "@/components/score-threshold-input";
 
 export default async function NewlyFoundLeadsPage() {
   const { workspace } = await requireWorkspace();
@@ -47,11 +48,7 @@ export default async function NewlyFoundLeadsPage() {
           <form className="mt-4 flex flex-wrap items-end gap-3">
             <label className="text-xs text-slate-400">
               <span className="mb-1 block">{fi ? "Pisteraja" : "Score threshold"}</span>
-              <div className="flex overflow-hidden rounded-lg border border-white/[0.1] bg-slate-950 focus-within:border-violet-400/50">
-                <button type="button" aria-label={fi ? "Pienennä pisterajaa" : "Decrease score threshold"} className="score-step flex w-9 items-center justify-center border-r border-white/[0.08] bg-white/[0.035] text-base font-semibold text-slate-400 transition hover:bg-violet-500/15 hover:text-violet-300" data-step="-1">−</button>
-                <input id="scoreThreshold" name="scoreThreshold" type="number" min="0" max="100" defaultValue="80" className="w-16 appearance-none bg-transparent px-2 py-2.5 text-center text-sm font-semibold text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                <button type="button" aria-label={fi ? "Nosta pisterajaa" : "Increase score threshold"} className="score-step flex w-9 items-center justify-center border-l border-white/[0.08] bg-white/[0.035] text-base font-semibold text-slate-400 transition hover:bg-violet-500/15 hover:text-violet-300" data-step="1">+</button>
-              </div>
+              <ScoreThresholdInput fi={fi} defaultValue={80} />
             </label>
             <button formAction={keepLeadsAboveScoreAction} className="rounded-lg bg-violet-500 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-violet-400">{fi ? "Pidä kaikki rajan saavuttavat" : "Keep all meeting threshold"}</button>
             <button formAction={rejectLeadsBelowScoreAction} className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.07]">{fi ? "Hylkää kaikki rajan alle jäävät" : "Reject all below threshold"}</button>
