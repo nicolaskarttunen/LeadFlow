@@ -34,20 +34,28 @@ export default async function NewlyFoundLeadsPage() {
         <div><div className="text-sm font-medium text-slate-100">{fi ? "Uutta liidiä odottaa" : "New leads waiting"}</div><div className="text-xs text-slate-500">{fi ? "Järjestetty uusimmasta vanhimpaan." : "Sorted newest first."}</div></div>
       </div>
 
-      <div className="mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4">
-        <div className="text-sm font-semibold text-slate-100">{fi ? "Käsittele pisteiden perusteella" : "Review by score"}</div>
-        <p className="mt-1 text-xs leading-5 text-slate-500">{fi ? "Valitse raja 0–100. Toiminnot koskevat vain pisteytettyjä liidejä, jotka odottavat vielä päätöstä." : "Choose a threshold from 0–100. Actions only affect scored leads still waiting for review."}</p>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          <form action={keepLeadsAboveScoreAction} className="flex flex-wrap items-end gap-2">
-            <label className="text-xs text-slate-400"><span className="mb-1 block">{fi ? "Pisteraja" : "Score threshold"}</span><input name="scoreThreshold" type="number" min="0" max="100" defaultValue="80" className="w-24 rounded-lg border border-white/[0.1] bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-violet-400/50" /></label>
-            <button className="rounded-lg bg-violet-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-400">{fi ? "Pidä kaikki ≥ raja" : "Keep all ≥ threshold"}</button>
-          </form>
-          <form action={rejectLeadsBelowScoreAction} className="flex flex-wrap items-end gap-2">
-            <label className="text-xs text-slate-400"><span className="mb-1 block">{fi ? "Pisteraja" : "Score threshold"}</span><input name="scoreThreshold" type="number" min="0" max="100" defaultValue="80" className="w-24 rounded-lg border border-white/[0.1] bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-violet-400/50" /></label>
-            <button className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.07]">{fi ? "Hylkää kaikki < raja" : "Reject all < threshold"}</button>
-          </form>
+      <details className="group mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02]">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.025]">
+          <div>
+            <span>{fi ? "Suodattimet" : "Filters"}</span>
+            <span className="ml-3 text-xs font-normal text-slate-500">{fi ? "Pisteisiin perustuva käsittely" : "Score-based review"}</span>
+          </div>
+          <span className="text-slate-500 transition group-open:rotate-180">⌄</span>
+        </summary>
+        <div className="border-t border-white/[0.07] px-4 py-4">
+          <p className="max-w-2xl text-xs leading-5 text-slate-500">{fi ? "Valitse pisteraja ja suorita haluamasi toiminto. Vain pisteytetyt, päätöstä odottavat liidit käsitellään." : "Choose a score threshold and apply the action you want. Only scored leads still awaiting review are affected."}</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <form action={keepLeadsAboveScoreAction} className="flex items-end gap-2">
+              <label className="text-xs text-slate-400"><span className="mb-1 block">{fi ? "Pisteraja" : "Score threshold"}</span><input name="scoreThreshold" type="number" min="0" max="100" defaultValue="80" className="w-24 rounded-lg border border-white/[0.1] bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-violet-400/50" /></label>
+              <button className="rounded-lg bg-violet-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-400">{fi ? "Pidä ≥ raja" : "Keep ≥ threshold"}</button>
+            </form>
+            <form action={rejectLeadsBelowScoreAction} className="flex items-end gap-2">
+              <label className="text-xs text-slate-400"><span className="mb-1 block">{fi ? "Pisteraja" : "Score threshold"}</span><input name="scoreThreshold" type="number" min="0" max="100" defaultValue="80" className="w-24 rounded-lg border border-white/[0.1] bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-violet-400/50" /></label>
+              <button className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.07]">{fi ? "Hylkää < raja" : "Reject < threshold"}</button>
+            </form>
+          </div>
         </div>
-      </div>
+      </details>
 
       <div className="mt-5 grid gap-4">
         {leads.length === 0 ? (
