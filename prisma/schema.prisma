@@ -20,6 +20,12 @@ enum LeadSource {
   PROVIDER
 }
 
+enum LeadReviewStatus {
+  PENDING
+  KEPT
+  REJECTED
+}
+
 enum LeadStatus {
   NEW
   QUALIFIED
@@ -304,6 +310,8 @@ model Lead {
   providerExternalId   String?
   source                LeadSource  @default(MANUAL)
   status                LeadStatus  @default(NEW)
+  reviewStatus          LeadReviewStatus?
+  reviewedAt            DateTime?
   whyRelevant           String?
   potentialService      String?
   discoveredAt          DateTime    @default(now())
@@ -323,6 +331,7 @@ model Lead {
   @@index([workspaceId, domainNormalized])
   @@index([workspaceId, companyNameNormalized])
   @@index([workspaceId, status])
+  @@index([workspaceId, reviewStatus])
   @@index([workspaceId, discoveredAt])
   @@unique([workspaceId, providerName, providerExternalId])
 }
