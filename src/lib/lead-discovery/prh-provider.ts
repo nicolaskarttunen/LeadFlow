@@ -64,8 +64,8 @@ export class PrhLeadDiscoveryProvider implements LeadDiscoveryProvider {
           domain: website,
           industry,
           location: companyLocation(company) ?? query.location,
-          description: `PRH/YTJ business ID: ${company.businessId!.value!}.`,
-          whyRelevant: `Matched PRH/YTJ search for ${[query.industry, query.location].filter(Boolean).join(" in ") || "the selected criteria"}.`,
+          description: `PRH/YTJ Y-tunnus: ${company.businessId!.value!}.`,
+          whyRelevant: `Vastaa PRH/YTJ-haun ehtoja: ${[query.industry, query.location].filter(Boolean).join(", ") || "valitut hakuehdot"}.`,
           potentialService: query.keywords?.length ? query.keywords.join(", ") : undefined,
         };
       });
