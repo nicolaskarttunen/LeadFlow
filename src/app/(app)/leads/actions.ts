@@ -479,6 +479,50 @@ export async function researchLeadAction(leadId: string) {
 }
 
 
+export async function researchPrhLeadAction(leadId: string) {
+  const { user, workspace } = await requireWorkspace();
+  const lead = await prisma.lead.findFirst({
+    where: { id: leadId, workspaceId: workspace.id },
+    select: { id: true, companyName: true, providerName: true, providerExternalId: true, website: true, industry: true, location: true },
+  });
+  if (!lead) throw new Error("Lead not found.");
+  if (lead.providerName !== "prh-ytj" || !lead.providerExternalId) throw new Error("This lead does not have a PRH/YTJ identity.");
+
+  const existing = await prisma.researchRecord.findFirst({
+    where: { workspaceId: workspace.id, leadId: lead.id, status: "COMPLETE" },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  await prisma.$transaction(async (tx) => {
+    const research = await tx.researchRecord.create({
+      data: {
+        workspaceId: workspace.id,
+        leadId: lead.id,
+        status: "COMPLETE",
+        companySummary: `PRH/YTJ vahvistaa yrityksen ${lead.companyName} Y-tunnuksella ${lead.providerExternalId}.`,
+        onlinePresence: lead.website,
+        opportunities: lead.website ? null : "PRH/YTJ ei sisältänyt yrityksen verkkosivua.",
+        relevantServices: [],
+        doNotClaim: ["PRH/YTJ-tiedot eivät yksin vahvista yrityksen kokoa, liikevaihtoa tai verkkosivun laatua."],
+        confidence: 80,
+      },
+    });
+    const evidence = [
+      { type: "business_id", description: `Y-tunnus: ${lead.providerExternalId}` },
+      lead.website ? { type: "website", description: `Verkkosivu: ${lead.website}`, sourceUrl: lead.website } : null,
+      lead.industry ? { type: "industry", description: `Toimiala: ${lead.industry}` } : null,
+      lead.location ? { type: "address", description: `Yrityksen osoite: ${lead.location}` } : null,
+    ].filter((item): item is { type: string; description: string; sourceUrl?: string } => Boolean(item));
+    for (const item of evidence) {
+      await tx.researchEvidence.create({ data: { workspaceId: workspace.id, leadId: lead.id, researchRecordId: research.id, type: item.type, description: item.description, sourceUrl: item.sourceUrl ?? null, confidence: 90 } });
+    }
+    await tx.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: user.id, action: "lead.enriched", entityType: "lead", entityId: lead.id, metadata: { provider: "prh-ytj", businessId: lead.providerExternalId, websiteFound: Boolean(lead.website) } } });
+  });
+  revalidatePath(`/leads/${lead.id}`);
+}
+
+
 export async function researchWebsiteAction(leadId: string) {
   const { user, workspace } = await requireWorkspace();
   const lead = await prisma.lead.findFirst({
@@ -666,9 +710,16 @@ export async function scoreLeadAction(leadId: string) {
 
 
 export async function analyzeLeadAction(leadId: string) {
-  await researchLeadAction(leadId);
-
   const { workspace } = await requireWorkspace();
+  const initialLead = await prisma.lead.findFirst({
+    where: { id: leadId, workspaceId: workspace.id },
+    select: { providerName: true },
+  });
+  if (!initialLead) throw new Error("Lead not found.");
+  if (initialLead.providerName === "google-places") await researchLeadAction(leadId);
+  else if (initialLead.providerName === "prh-ytj") await researchPrhLeadAction(leadId);
+  else throw new Error("This lead does not have a supported discovery provider.");
+
   const lead = await prisma.lead.findFirst({
     where: { id: leadId, workspaceId: workspace.id },
     select: { website: true },
