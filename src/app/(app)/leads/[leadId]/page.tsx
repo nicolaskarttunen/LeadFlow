@@ -79,8 +79,10 @@ export default async function LeadDetailPage({
 
   const statusLabel: Record<string, string> = { NEW: fi ? "UUSI" : "NEW", APPROVED: fi ? "HYVÄKSYTTY" : "APPROVED", REVIEW: fi ? "TARKISTETTAVA" : "REVIEW", CONTACTED: fi ? "KONTAKTOITU" : "CONTACTED", REPLIED: fi ? "VASTANNUT" : "REPLIED" };
   const sourceLabel: Record<string, string> = { PROVIDER: fi ? "Hakupalvelu" : "Provider", MANUAL: fi ? "Manuaalinen" : "Manual", CSV: "CSV", MOCK: fi ? "Testidata" : "Mock" };
-  const evidenceTypeLabel = (type: string) => fi ? ({ website: "Verkkosivu", phone: "Puhelin", address: "Osoite" } as Record<string, string>)[type.toLowerCase()] ?? type : type;
-  const localizeGeneratedText = (value?: string | null) => {
+  const evidenceTypeLabel = (type: string) => fi ? ({ website: "Verkkosivu", phone: "Puhelin", address: "Osoite", industry: "Toimiala", business_id: "Y-tunnus" } as Record<string, string>)[type.toLowerCase()] ?? type : type;
+  const decodeDisplayText = (value?: string | null) => value?.replaceAll("&#8211;", "–").replaceAll("&#8212;", "—").replaceAll("&amp;", "&");
+  const localizeGeneratedText = (raw?: string | null) => {
+    const value = decodeDisplayText(raw);
     if (!value || !fi) return value;
     const matched = value.match(/^Matched Google Places search for (.+) in (.+)\.$/);
     if (matched) return `Vastaa Google Places -hakua: ${matched[1]}, ${matched[2]}.`;
@@ -196,9 +198,9 @@ export default async function LeadDetailPage({
               {websiteAudit ? (
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Detail label="HTTPS" value={websiteAudit.httpsEnabled === null ? null : websiteAudit.httpsEnabled ? "Kyllä" : "Ei"} />
-                  <Detail label={fi ? "Sivun otsikko" : "Page title"} value={websiteAudit.pageTitle} />
-                  <Detail label="H1" value={websiteAudit.h1} />
-                  <Detail label={fi ? "Metakuvaus" : "Meta description"} value={websiteAudit.metaDescription} />
+                  <Detail label={fi ? "Sivun otsikko" : "Page title"} value={decodeDisplayText(websiteAudit.pageTitle)} />
+                  <Detail label="H1" value={decodeDisplayText(websiteAudit.h1)} />
+                  <Detail label={fi ? "Metakuvaus" : "Meta description"} value={decodeDisplayText(websiteAudit.metaDescription)} />
                   <div className="sm:col-span-2 rounded-xl border border-white/10 p-4 text-sm text-slate-300">{localizeGeneratedText(websiteAudit.seoNotes) ?? "—"}</div>
                   <div className="sm:col-span-2 rounded-xl border border-white/10 p-4 text-sm text-slate-300">{localizeGeneratedText(websiteAudit.ctaNotes) ?? "—"}</div>
                 </div>
@@ -216,10 +218,7 @@ export default async function LeadDetailPage({
               ) : null}
             </div>
             {!research ? (
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                No research record yet. The next development phase will add the
-                evidence-backed research pipeline before any AI email generation.
-              </p>
+              <p className="mt-3 text-sm leading-6 text-slate-500">{fi ? "Yritystutkimus odottaa valmistumista." : "Company research is pending."}</p>
             ) : (
               <div className="mt-4 space-y-3">
                 <div className="text-sm text-slate-300">
@@ -242,8 +241,7 @@ export default async function LeadDetailPage({
             <h2 className="font-semibold">{fi ? "Sähköpostihistoria" : "Email history"}</h2>
             {lead.emailMessages.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">
-                No messages yet. Sending remains disabled until the approval and
-                suppression layers are implemented.
+                {fi ? "Ei lähetettyjä sähköposteja." : "No emails sent yet."}
               </p>
             ) : (
               <div className="mt-4 space-y-3">
