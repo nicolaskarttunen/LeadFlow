@@ -90,6 +90,9 @@ export default async function LeadDetailPage({
     if (confirms) return `Google Places vahvistaa yritykselle ${confirms[1]} verkkosivun.`;
     if (value === "H1 heading was not detected.") return "H1-pääotsikkoa ei havaittu.";
     if (value === "A contact link was detected on the homepage.") return "Etusivulta löytyi yhteydenottolinkki.";
+    if (value.startsWith("Business address:")) return value.replace("Business address:", "Yrityksen osoite:");
+    if (value.startsWith("Public business phone:")) return value.replace("Public business phone:", "Yrityksen julkinen puhelinnumero:");
+    if (value.startsWith("Website:")) return value.replace("Website:", "Verkkosivu:");
     return value;
   };
 
