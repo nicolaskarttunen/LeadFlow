@@ -77,6 +77,23 @@ export default async function LeadDetailPage({
   const research = lead.researchRecords[0];
   const websiteAudit = lead.websiteAudits[0];
 
+  const statusLabel: Record<string, string> = { NEW: fi ? "UUSI" : "NEW", APPROVED: fi ? "HYVÄKSYTTY" : "APPROVED", REVIEW: fi ? "TARKISTETTAVA" : "REVIEW", CONTACTED: fi ? "KONTAKTOITU" : "CONTACTED", REPLIED: fi ? "VASTANNUT" : "REPLIED" };
+  const sourceLabel: Record<string, string> = { PROVIDER: fi ? "Hakupalvelu" : "Provider", MANUAL: fi ? "Manuaalinen" : "Manual", CSV: "CSV", MOCK: fi ? "Testidata" : "Mock" };
+  const evidenceTypeLabel = (type: string) => fi ? ({ website: "Verkkosivu", phone: "Puhelin", address: "Osoite" } as Record<string, string>)[type.toLowerCase()] ?? type : type;
+  const localizeGeneratedText = (value?: string | null) => {
+    if (!value || !fi) return value;
+    const matched = value.match(/^Matched Google Places search for (.+) in (.+)\\.$/);
+    if (matched) return `Vastaa Google Places -hakua: ${matched[1]}, ${matched[2]}.`;
+    const listed = value.match(/^Listed business at (.+)\\.$/);
+    if (listed) return `Yritys on listattu osoitteessa ${listed[1]}.`;
+    const confirms = value.match(/^Google Places confirms a website for (.+)\\.$/);
+    if (confirms) return `Google Places vahvistaa yritykselle ${confirms[1]} verkkosivun.`;
+    if (value === "H1 heading was not detected.") return "H1-pääotsikkoa ei havaittu.";
+    if (value === "A contact link was detected on the homepage.") return "Etusivulta löytyi yhteydenottolinkki.";
+    return value;
+  };
+
+
   return (
     <div className="mx-auto max-w-6xl">
       <Link href="/leads" className="text-sm text-slate-400 hover:text-white">
@@ -85,7 +102,7 @@ export default async function LeadDetailPage({
 
       <div className="mt-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <div className="text-sm text-violet-300">{lead.status}</div>
+          <div className="text-sm text-violet-300">{statusLabel[lead.status] ?? lead.status}</div>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             {lead.companyName}
           </h1>
@@ -128,7 +145,7 @@ export default async function LeadDetailPage({
           <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
             <h2 className="font-semibold">{fi ? "Miksi tämä yritys?" : "Why this company?"}</h2>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">
-              {lead.whyRelevant ||
+              {localizeGeneratedText(lead.whyRelevant) ||
                 (fi
                   ? "Yritykselle ei ole vielä muodostettu yhteydenoton perustelua."
                   : "No contact reason has been added yet.")}
@@ -153,7 +170,7 @@ export default async function LeadDetailPage({
             </div>
             {lead.description ? (
               <p className="mt-6 whitespace-pre-wrap text-sm leading-7 text-slate-400">
-                {lead.description}
+                {localizeGeneratedText(lead.description)}
               </p>
             ) : null}
           </section>
@@ -179,8 +196,8 @@ export default async function LeadDetailPage({
                   <Detail label={fi ? "Sivun otsikko" : "Page title"} value={websiteAudit.pageTitle} />
                   <Detail label="H1" value={websiteAudit.h1} />
                   <Detail label={fi ? "Metakuvaus" : "Meta description"} value={websiteAudit.metaDescription} />
-                  <div className="sm:col-span-2 rounded-xl border border-white/10 p-4 text-sm text-slate-300">{websiteAudit.seoNotes ?? "—"}</div>
-                  <div className="sm:col-span-2 rounded-xl border border-white/10 p-4 text-sm text-slate-300">{websiteAudit.ctaNotes ?? "—"}</div>
+                  <div className="sm:col-span-2 rounded-xl border border-white/10 p-4 text-sm text-slate-300">{localizeGeneratedText(websiteAudit.seoNotes) ?? "—"}</div>
+                  <div className="sm:col-span-2 rounded-xl border border-white/10 p-4 text-sm text-slate-300">{localizeGeneratedText(websiteAudit.ctaNotes) ?? "—"}</div>
                 </div>
               ) : null}
             </section>
@@ -203,15 +220,15 @@ export default async function LeadDetailPage({
             ) : (
               <div className="mt-4 space-y-3">
                 <div className="text-sm text-slate-300">
-                  {research.companySummary ?? (fi ? "Tutkimustiedot tallennettu." : "Research record created.")}
+                  {localizeGeneratedText(research.companySummary) ?? (fi ? "Tutkimustiedot tallennettu." : "Research record created.")}
                 </div>
                 {research.evidence.map((item) => (
                   <div
                     key={item.id}
                     className="rounded-xl border border-white/10 px-4 py-3 text-sm"
                   >
-                    <div className="font-medium">{item.type}</div>
-                    <div className="mt-1 text-slate-400">{item.description}</div>
+                    <div className="font-medium">{evidenceTypeLabel(item.type)}</div>
+                    <div className="mt-1 text-slate-400">{localizeGeneratedText(item.description)}</div>
                   </div>
                 ))}
               </div>
@@ -289,7 +306,7 @@ export default async function LeadDetailPage({
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
             <h2 className="font-semibold">{fi ? "Lähde" : "Source"}</h2>
-            <div className="mt-3 text-sm text-slate-400">{lead.source}</div>
+            <div className="mt-3 text-sm text-slate-400">{sourceLabel[lead.source] ?? lead.source}</div>
             <div className="mt-1 text-xs text-slate-500">
               {fi ? "Löydetty" : "Discovered"} {lead.discoveredAt.toLocaleDateString(fi ? "fi-FI" : "en-GB")}
             </div>
