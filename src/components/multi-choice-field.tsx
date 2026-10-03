@@ -1,6 +1,7 @@
 "use client";
 
-import { KeyboardEvent, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import type { KeyboardEvent } from "react";
 
 type MultiChoiceFieldProps = {
   name: string;
