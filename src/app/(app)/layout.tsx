@@ -5,7 +5,7 @@ import { requireWorkspace } from "@/lib/workspace";
 export default async function ProtectedAppLayout({ children }: { children: React.ReactNode }) {
   const { user, workspace } = await requireWorkspace();
   const [newLeadCount, currentUser] = await Promise.all([
-    prisma.lead.count({ where: { workspaceId: workspace.id, status: "NEW" } }),
+    prisma.lead.count({ where: { workspaceId: workspace.id, reviewStatus: "PENDING" } }),
     prisma.user.findUnique({ where: { id: user.id }, select: { locale: true } }),
   ]);
   const locale = currentUser?.locale === "en" ? "en" : "fi";
