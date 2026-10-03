@@ -2,12 +2,13 @@ import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
 import { getCurrentLocale } from "@/lib/current-locale";
+import { keepLeadAction, rejectLeadAction } from "./actions";
 
 export default async function NewlyFoundLeadsPage() {
   const { workspace } = await requireWorkspace();
   const fi = (await getCurrentLocale()) === "fi";
   const leads = await prisma.lead.findMany({
-    where: { workspaceId: workspace.id, status: "NEW" },
+    where: { workspaceId: workspace.id, reviewStatus: "PENDING" },
     include: {
       scores: { orderBy: { createdAt: "desc" }, take: 1 },
       researchRecords: { where: { status: "COMPLETE" }, orderBy: { createdAt: "desc" }, take: 1 },
@@ -41,9 +42,9 @@ export default async function NewlyFoundLeadsPage() {
           const research = lead.researchRecords[0];
           const audit = lead.websiteAudits[0];
           return (
-            <Link key={lead.id} href={`/leads/${lead.id}`} className="surface grid gap-5 rounded-3xl p-5 transition hover:border-violet-400/25 hover:bg-white/[0.04] md:grid-cols-[1fr_150px_180px] md:items-center">
+            <div key={lead.id} className="surface grid gap-5 rounded-3xl p-5 md:grid-cols-[1fr_150px_180px] md:items-center">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2"><h2 className="truncate font-semibold text-slate-100">{lead.companyName}</h2><span className="rounded-full border border-violet-400/15 bg-violet-400/[0.06] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-violet-200">{fi ? "Uusi" : "New"}</span></div>
+                <div className="flex flex-wrap items-center gap-2"><Link href={`/leads/${lead.id}`} className="truncate font-semibold text-slate-100 transition hover:text-violet-300">{lead.companyName}</Link><span className="rounded-full border border-violet-400/15 bg-violet-400/[0.06] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-violet-200">{fi ? "Uusi" : "New"}</span></div>
                 <div className="mt-1 text-xs text-slate-500">{lead.industry ?? (fi ? "Toimiala ei tiedossa" : "Industry unknown")} · {lead.location ?? (fi ? "Sijainti ei tiedossa" : "Location unknown")}</div>
                 <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-300">{score?.summary ?? lead.whyRelevant ?? (fi ? "Analyysi odottaa valmistumista." : "Analysis is pending.")}</p>
               </div>
@@ -51,8 +52,8 @@ export default async function NewlyFoundLeadsPage() {
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between gap-3"><span className="text-slate-500">{fi ? "Yritystutkimus" : "Company research"}</span><span className={research ? "text-emerald-300" : "text-slate-500"}>{research ? (fi ? "Valmis" : "Complete") : (fi ? "Odottaa" : "Pending")}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-slate-500">{fi ? "Verkkosivu" : "Website"}</span><span className={audit ? "text-emerald-300" : "text-slate-500"}>{audit ? (fi ? "Analysoitu" : "Analyzed") : lead.website ? (fi ? "Odottaa" : "Pending") : (fi ? "Ei löytynyt" : "Not found")}</span></div>
-              </div>
-            </Link>
+              <div className="flex gap-2 pt-2"><form action={keepLeadAction}><input type="hidden" name="leadId" value={lead.id}/><button className="rounded-lg bg-violet-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-400">{fi ? "Pidä liidi" : "Keep lead"}</button></form><form action={rejectLeadAction}><input type="hidden" name="leadId" value={lead.id}/><button className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.07] hover:text-white">{fi ? "Hylkää" : "Reject"}</button></form></div></div>
+            </div>
           );
         })}
       </div>
