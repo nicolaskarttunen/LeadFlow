@@ -1,9 +1,46 @@
 import { requireWorkspace } from "@/lib/workspace";
 import prisma from "@/lib/prisma";
+import { MultiChoiceField } from "@/components/multi-choice-field";
 import { saveProspectingSettingsAction } from "./actions";
 
 const field = "mt-2 w-full rounded-xl border border-white/10 bg-white/[0.035] px-3.5 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-violet-400/40";
 const label = "text-xs font-semibold uppercase tracking-[0.12em] text-slate-500";
+
+function getSignalSuggestions(offering: string, fi: boolean) {
+  const value = offering.toLowerCase();
+  const websiteRelated = ["verkkosiv", "website", "seo", "google", "näkyvy", "visibility", "markkinoin", "marketing"].some((term) => value.includes(term));
+  const recruitmentRelated = ["rekry", "recruit", "hr", "henkilöst"].some((term) => value.includes(term));
+  const accountingRelated = ["kirjanp", "taloushall", "accounting", "bookkeeping"].some((term) => value.includes(term));
+  const itRelated = ["it-palvel", "ohjelmisto", "software", "automaatio", "automation"].some((term) => value.includes(term));
+
+  if (websiteRelated) {
+    return fi
+      ? ["Ei verkkosivua", "Vanhentunut verkkosivu", "Heikko hakukonenäkyvyys", "Epäselvä yhteydenotto", "Uusi yritys", "Kasvava yritys"]
+      : ["No website", "Outdated website", "Weak search visibility", "Unclear contact path", "New company", "Growing company"];
+  }
+
+  if (recruitmentRelated) {
+    return fi
+      ? ["Avoimia työpaikkoja", "Kasvava yritys", "Uusi toimipiste", "Aktiivinen rekrytointi", "Uusi yritys"]
+      : ["Open roles", "Growing company", "New location", "Active hiring", "New company"];
+  }
+
+  if (accountingRelated) {
+    return fi
+      ? ["Uusi yritys", "Kasvava yritys", "Useita toimipisteitä", "Kansainvälistyminen", "Yritysmuutos"]
+      : ["New company", "Growing company", "Multiple locations", "International expansion", "Company change"];
+  }
+
+  if (itRelated) {
+    return fi
+      ? ["Kasvava yritys", "Manuaalisia prosesseja", "Uusi toimipiste", "Rekrytoi aktiivisesti", "Uusi yritys"]
+      : ["Growing company", "Manual processes", "New location", "Active hiring", "New company"];
+  }
+
+  return fi
+    ? ["Uusi yritys", "Kasvava yritys", "Uusi toimipiste", "Rekrytoi aktiivisesti"]
+    : ["New company", "Growing company", "New location", "Active hiring"];
+}
 
 export default async function ProspectingSettingsPage() {
   const { user, workspace } = await requireWorkspace();
@@ -13,6 +50,11 @@ export default async function ProspectingSettingsPage() {
     prisma.companyProfile.findUnique({ where: { workspaceId: workspace.id } }),
   ]);
   const fi = currentUser?.locale !== "en";
+  const offering = company?.offering ?? company?.description ?? "";
+  const industrySuggestions = fi
+    ? ["Palveluyritykset", "Rakentaminen", "Kiinteistöala", "Taloushallinto", "IT & ohjelmistot", "Teollisuus", "Kauppa & verkkokauppa", "Kuljetus & logistiikka", "Rekrytointi & HR", "Terveys & hyvinvointi"]
+    : ["Professional services", "Construction", "Real estate", "Accounting", "IT & software", "Manufacturing", "Retail & e-commerce", "Transport & logistics", "Recruitment & HR", "Health & wellness"];
+  const signalSuggestions = getSignalSuggestions(offering, fi);
 
   return <div className="mx-auto max-w-5xl">
     <div className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-300">{fi ? "Asetukset" : "Settings"}</div>
@@ -29,7 +71,7 @@ export default async function ProspectingSettingsPage() {
       <section className="surface rounded-3xl p-6 sm:p-7">
         <div className="flex items-start gap-4"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-sm font-semibold text-violet-300">1</div><div><h2 className="font-semibold text-slate-100">{fi ? "Mitä myyt?" : "What do you sell?"}</h2><p className="mt-1 text-sm leading-6 text-slate-400">{fi ? "LeadFlow käyttää tätä ymmärtääkseen, millaiset yritykset voivat hyötyä palvelustasi." : "LeadFlow uses this to understand which companies may benefit from your offering."}</p></div></div>
         <div className="mt-5">
-          <label className="block"><span className={label}>{fi ? "Palvelusi tai tuotteesi" : "Your service or product"}</span><textarea name="offering" defaultValue={company?.offering ?? company?.description ?? ""} rows={3} placeholder={fi ? "Esim. Suunnittelemme yrityksille verkkosivuja ja autamme parantamaan näkyvyyttä Googlessa." : "E.g. We build websites for businesses and help improve their visibility on Google."} className={field} /><span className="mt-1 block text-xs text-slate-600">{fi ? "Kuvaile lyhyesti mitä asiakas voi ostaa sinulta." : "Briefly describe what a customer can buy from you."}</span></label>
+          <label className="block"><span className={label}>{fi ? "Palvelusi tai tuotteesi" : "Your service or product"}</span><textarea name="offering" defaultValue={offering} rows={3} placeholder={fi ? "Esim. Suunnittelemme yrityksille verkkosivuja ja autamme parantamaan näkyvyyttä Googlessa." : "E.g. We build websites for businesses and help improve their visibility on Google."} className={field} /><span className="mt-1 block text-xs text-slate-600">{fi ? "Kuvaile lyhyesti mitä asiakas voi ostaa sinulta." : "Briefly describe what a customer can buy from you."}</span></label>
         </div>
       </section>
 
@@ -37,7 +79,7 @@ export default async function ProspectingSettingsPage() {
         <div className="flex items-start gap-4"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-sm font-semibold text-violet-300">2</div><div><h2 className="font-semibold text-slate-100">{fi ? "Kenelle myyt?" : "Who do you sell to?"}</h2><p className="mt-1 text-sm leading-6 text-slate-400">{fi ? "Kuvaile yritykset, joille palvelusi tuottaa eniten arvoa." : "Describe the companies that get the most value from your service."}</p></div></div>
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <label className="sm:col-span-2"><span className={label}>{fi ? "Millainen on hyvä asiakas?" : "What makes a good customer?"}</span><textarea name="targetCustomer" defaultValue={profile?.targetCustomer ?? company?.idealCustomer ?? ""} rows={3} placeholder={fi ? "Esim. suomalainen palveluyritys, joka hankkii asiakkaita verkosta ja haluaa kasvaa." : "E.g. a service company that acquires customers online and wants to grow."} className={field} /></label>
-          <label><span className={label}>{fi ? "Kohdetoimialat" : "Target industries"}</span><input name="industries" defaultValue={profile?.industries.join(", ") ?? ""} placeholder={fi ? "Esim. tilitoimistot, konsultointi, kiinteistöpalvelut" : "E.g. accounting, consulting, property services"} className={field} /><span className="mt-1 block text-xs text-slate-600">{fi ? "Voit lisätä useita pilkulla eroteltuna." : "Separate multiple values with commas."}</span></label>
+          <div className="sm:col-span-2"><span className={label}>{fi ? "Kohdetoimialat" : "Target industries"}</span><p className="mt-1 mb-3 text-xs text-slate-500">{fi ? "Valitse sopivat. Jos omaa toimialaa ei löydy, lisää se itse." : "Choose the relevant industries. Add your own if needed."}</p><MultiChoiceField name="industries" suggestions={industrySuggestions} defaultValues={profile?.industries ?? []} addLabel={fi ? "Lisää" : "Add"} placeholder={fi ? "Lisää muu toimiala" : "Add another industry"} emptyLabel={fi ? "Yhtään toimialaa ei ole vielä valittu." : "No industries selected yet."} /></div>
           <label><span className={label}>{fi ? "Yrityksen koko" : "Company size"}</span><select name="companySize" defaultValue={profile?.companySize ?? ""} className={field}><option className="bg-slate-950 text-slate-100" value="">{fi ? "Ei rajausta" : "Any size"}</option><option className="bg-slate-950 text-slate-100" value="1-5">1–5</option><option className="bg-slate-950 text-slate-100" value="6-10">6–10</option><option className="bg-slate-950 text-slate-100" value="11-50">11–50</option><option className="bg-slate-950 text-slate-100" value="51-250">51–250</option><option className="bg-slate-950 text-slate-100" value="250+">250+</option></select><span className="mt-1 block text-xs text-slate-600">{fi ? "Työntekijöiden määrä." : "Number of employees."}</span></label>
         </div>
       </section>
@@ -48,8 +90,8 @@ export default async function ProspectingSettingsPage() {
       </section>
 
       <section className="surface rounded-3xl p-6 sm:p-7">
-        <div className="flex items-start gap-4"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-sm font-semibold text-violet-300">4</div><div><h2 className="font-semibold text-slate-100">{fi ? "Mistä tunnistaa hyvän myyntimahdollisuuden?" : "What signals a good sales opportunity?"}</h2><p className="mt-1 text-sm leading-6 text-slate-400">{fi ? "Kerro tarpeet ja ostosignaalit, joita LeadFlow etsii löydetyistä yrityksistä. Näiden pitäisi liittyä siihen, mitä itse myyt." : "Define needs and buying signals LeadFlow should look for. They should relate directly to what you sell."}</p></div></div>
-        <label className="mt-5 block"><span className={label}>{fi ? "Tarpeet ja ostosignaalit" : "Needs and buying signals"}</span><input name="keywords" defaultValue={profile?.keywords.join(", ") ?? ""} placeholder={fi ? "Esim. vanhentunut verkkosivu, heikko näkyvyys, uusi yritys" : "E.g. outdated website, weak visibility, new company"} className={field} /><span className="mt-1 block text-xs text-slate-600">{fi ? "LeadFlow käyttää näitä tutkimuksessa ja myöhemmin pisteytyksessä — ei pelkkinä hakusanoina." : "LeadFlow uses these in research and scoring, not merely as search keywords."}</span></label>
+        <div className="flex items-start gap-4"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-sm font-semibold text-violet-300">4</div><div><h2 className="font-semibold text-slate-100">{fi ? "Mistä tunnistaa hyvän myyntimahdollisuuden?" : "What signals a good sales opportunity?"}</h2><p className="mt-1 text-sm leading-6 text-slate-400">{fi ? "Valitse merkit, joita LeadFlow etsii löydetyistä yrityksistä. Ehdotukset perustuvat siihen, mitä myyt." : "Choose the signals LeadFlow should look for. Suggestions are based on what you sell."}</p></div></div>
+        <div className="mt-5"><span className={label}>{fi ? "Tarpeet ja ostosignaalit" : "Needs and buying signals"}</span><p className="mt-1 mb-3 text-xs text-slate-500">{fi ? "Valitse vain sellaiset signaalit, jotka oikeasti tekevät yrityksestä sinulle kiinnostavan." : "Choose only signals that genuinely make a company interesting to you."}</p><MultiChoiceField name="keywords" suggestions={signalSuggestions} defaultValues={profile?.keywords ?? []} addLabel={fi ? "Lisää" : "Add"} placeholder={fi ? "Lisää oma signaali" : "Add your own signal"} emptyLabel={fi ? "Yhtään ostosignaalia ei ole vielä valittu." : "No buying signals selected yet."} /></div>
       </section>
 
       <section className="surface rounded-3xl p-6 sm:p-7">
