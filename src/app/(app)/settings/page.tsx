@@ -7,10 +7,10 @@ export default async function SettingsPage() {
   const currentUser = await prisma.user.findUnique({ where: { id: user.id }, select: { locale: true } });
   const fi = currentUser?.locale !== "en";
   const cards = fi ? [
-    { href: "/settings/prospecting", title: "Prospektointi", description: "Ihanneasiakkaat, alueet, toimialat ja automaattisen liidien etsinnän rajat." },
+    { href: "/settings/prospecting", title: "Myyntiprofiili", description: "Mitä myyt, kenelle myyt ja millaiset yritykset ovat sinulle hyviä myyntimahdollisuuksia." },
     { href: "/settings/general", title: "Yleiset", description: "LeadFlow'n käyttöliittymän kieli ja käyttäjäkohtaiset asetukset." },
   ] : [
-    { href: "/settings/prospecting", title: "Prospecting", description: "Ideal customers, regions, industries and limits for automated lead discovery." },
+    { href: "/settings/prospecting", title: "Sales profile", description: "What you sell, who you sell to and what makes a strong sales opportunity for you." },
     { href: "/settings/general", title: "General", description: "LeadFlow interface language and user-specific settings." },
   ];
 
