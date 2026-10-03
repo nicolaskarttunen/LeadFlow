@@ -10,6 +10,7 @@ function list(value: FormDataEntryValue | null) {
 
 export async function saveProspectingSettingsAction(formData: FormData) {
   const { workspace } = await requireWorkspace();
+  const offering = String(formData.get("offering") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim() || "Pääprofiili";
   const leadsPerWeek = Math.min(100, Math.max(1, Number(formData.get("leadsPerWeek") ?? 25)));
   const minimumScore = Math.min(100, Math.max(0, Number(formData.get("minimumScore") ?? 60)));
@@ -30,6 +31,8 @@ export async function saveProspectingSettingsAction(formData: FormData) {
     language: formData.get("language") === "en" ? "en" : "fi",
     active: true,
   };
+
+  await prisma.companyProfile.updateMany({ where: { workspaceId: workspace.id }, data: { offering: offering || null } });
 
   const existing = await prisma.idealCustomerProfile.findFirst({ where: { workspaceId: workspace.id, active: true }, orderBy: { createdAt: "asc" } });
   if (existing) await prisma.idealCustomerProfile.update({ where: { id: existing.id }, data });
