@@ -82,11 +82,11 @@ export default async function LeadDetailPage({
   const evidenceTypeLabel = (type: string) => fi ? ({ website: "Verkkosivu", phone: "Puhelin", address: "Osoite" } as Record<string, string>)[type.toLowerCase()] ?? type : type;
   const localizeGeneratedText = (value?: string | null) => {
     if (!value || !fi) return value;
-    const matched = value.match(/^Matched Google Places search for (.+) in (.+)\\.$/);
+    const matched = value.match(/^Matched Google Places search for (.+) in (.+)\.$/);
     if (matched) return `Vastaa Google Places -hakua: ${matched[1]}, ${matched[2]}.`;
-    const listed = value.match(/^Listed business at (.+)\\.$/);
+    const listed = value.match(/^Listed business at (.+)\.$/);
     if (listed) return `Yritys on listattu osoitteessa ${listed[1]}.`;
-    const confirms = value.match(/^Google Places confirms a website for (.+)\\.$/);
+    const confirms = value.match(/^Google Places confirms a website for (.+)\.$/);
     if (confirms) return `Google Places vahvistaa yritykselle ${confirms[1]} verkkosivun.`;
     if (value === "H1 heading was not detected.") return "H1-pääotsikkoa ei havaittu.";
     if (value === "A contact link was detected on the homepage.") return "Etusivulta löytyi yhteydenottolinkki.";
