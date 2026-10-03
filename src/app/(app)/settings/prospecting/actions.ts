@@ -13,11 +13,13 @@ export async function saveProspectingSettingsAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim() || "Pääprofiili";
   const leadsPerWeek = Math.min(100, Math.max(1, Number(formData.get("leadsPerWeek") ?? 25)));
   const minimumScore = Math.min(100, Math.max(0, Number(formData.get("minimumScore") ?? 60)));
+  const regionMode = String(formData.get("regionMode") ?? "custom");
+  const regions = regionMode === "finland" ? ["Suomi"] : list(formData.get("regions"));
   const data = {
     name,
     targetCustomer: String(formData.get("targetCustomer") ?? "").trim() || null,
     industries: list(formData.get("industries")),
-    regions: list(formData.get("regions")),
+    regions,
     companySize: String(formData.get("companySize") ?? "").trim() || null,
     keywords: list(formData.get("keywords")),
     excludedIndustries: list(formData.get("excludedIndustries")),
