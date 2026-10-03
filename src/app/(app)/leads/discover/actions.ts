@@ -45,7 +45,7 @@ export async function addDiscoveredLeadsAction(_previousState: AddDiscoveryState
     const lead = await prisma.lead.create({ data: { workspaceId: workspace.id, companyName: item.companyName.trim(), companyNameNormalized: normalizedName, domain: item.domain ?? null, domainNormalized: normalizedDomain, domainKey: normalizedDomain ? `${workspace.id}:${normalizedDomain}` : null, website: item.website ?? null, industry: item.industry ?? null, location: item.location ?? null, companySize: item.companySize ?? null, description: item.description ?? null, whyRelevant: item.whyRelevant ?? null, potentialService: item.potentialService ?? null, providerName: item.provider ?? null, providerExternalId: item.providerPlaceId ?? null, source: item.provider === "google-places" || item.provider === "prh-ytj" ? "PROVIDER" : "MOCK", reviewStatus: item.provider === "google-places" || item.provider === "prh-ytj" ? "PENDING" : null } });
     await prisma.auditLog.create({ data: { workspaceId: workspace.id, actorUserId: user.id, action: "lead.discovered", entityType: "lead", entityId: lead.id, metadata: { provider: item.provider ?? "mock", providerPlaceId: item.providerPlaceId ?? null, reviewed: true } } });
     created += 1;
-    if (item.provider === "google-places") {
+    if (item.provider === "google-places" || item.provider === "prh-ytj") {
       try {
         await analyzeLeadAction(lead.id);
       } catch (error) {
