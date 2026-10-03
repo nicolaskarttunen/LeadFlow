@@ -19,6 +19,16 @@ export default async function NewlyFoundLeadsPage() {
     take: 100,
   });
 
+  leads.sort((a, b) => {
+    const aScore = a.scores[0]?.total;
+    const bScore = b.scores[0]?.total;
+    if (aScore == null && bScore == null) return b.discoveredAt.getTime() - a.discoveredAt.getTime();
+    if (aScore == null) return 1;
+    if (bScore == null) return -1;
+    if (bScore !== aScore) return bScore - aScore;
+    return b.discoveredAt.getTime() - a.discoveredAt.getTime();
+  });
+
   return (
     <div className="mx-auto max-w-7xl">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
@@ -32,7 +42,7 @@ export default async function NewlyFoundLeadsPage() {
 
       <div className="mt-7 flex items-center gap-3 rounded-2xl border border-violet-400/15 bg-violet-400/[0.05] px-4 py-3">
         <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-violet-400/10 text-sm font-semibold text-violet-200">{leads.length}</span>
-        <div><div className="text-sm font-medium text-slate-100">{fi ? "Uutta liidiä odottaa" : "New leads waiting"}</div><div className="text-xs text-slate-500">{fi ? "Järjestetty uusimmasta vanhimpaan." : "Sorted newest first."}</div></div>
+        <div><div className="text-sm font-medium text-slate-100">{fi ? "Uutta liidiä odottaa" : "New leads waiting"}</div><div className="text-xs text-slate-500">{fi ? "Järjestetty parhaista pisteistä alkaen." : "Sorted by highest score first."}</div></div>
       </div>
 
       <details className="group mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02]">
