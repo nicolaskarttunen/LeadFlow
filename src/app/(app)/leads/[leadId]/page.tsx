@@ -129,7 +129,9 @@ export default async function LeadDetailPage({
             <h2 className="font-semibold">{fi ? "Miksi tämä yritys?" : "Why this company?"}</h2>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">
               {lead.whyRelevant ||
-                fi ? "Yritykselle ei ole vielä muodostettu yhteydenoton perustelua." : "No contact reason has been added yet."
+                (fi
+                  ? "Yritykselle ei ole vielä muodostettu yhteydenoton perustelua."
+                  : "No contact reason has been added yet.")}
             </p>
             {lead.potentialService ? (
               <div className="mt-5 rounded-2xl border border-violet-400/15 bg-violet-400/[0.06] p-4">
