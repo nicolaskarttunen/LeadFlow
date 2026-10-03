@@ -43,3 +43,4 @@ export function DiscoveryForm({ locale }: { locale: "fi" | "en" }) {
     <div className="mt-6 flex justify-end border-t border-white/[0.07] pt-5"><button disabled={finding} className="rounded-xl bg-violet-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-violet-400 disabled:opacity-50">{finding?(fi?"Etsitään...":"Finding leads..."):(fi?"Etsi liidejä":"Find leads")}</button></div>
   </form>
 </div>;
+}
