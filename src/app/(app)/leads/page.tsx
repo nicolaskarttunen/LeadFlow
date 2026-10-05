@@ -7,7 +7,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const { workspace } = await requireWorkspace();
   const fi = (await getCurrentLocale()) === "fi";
   const query = (await searchParams).q?.trim() ?? "";
-  const leads = await prisma.lead.findMany({
+  const foundLeads = await prisma.lead.findMany({
     where: {
       workspaceId: workspace.id,
       ...(query ? { OR: [
@@ -23,6 +23,16 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       scores: { orderBy: { createdAt: "desc" }, take: 1 },
     },
     orderBy: { createdAt: "desc" },
+  });
+
+  const leads = foundLeads.sort((a, b) => {
+    const aScore = a.scores[0]?.total;
+    const bScore = b.scores[0]?.total;
+    if (aScore == null && bScore == null) return b.createdAt.getTime() - a.createdAt.getTime();
+    if (aScore == null) return 1;
+    if (bScore == null) return -1;
+    if (aScore !== bScore) return bScore - aScore;
+    return b.createdAt.getTime() - a.createdAt.getTime();
   });
 
   return (
