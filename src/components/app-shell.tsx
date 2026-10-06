@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { SignOutButton } from "@/components/sign-out-button";
 import { LeadFlowCopilot } from "@/components/leadflow-copilot";
 
@@ -28,9 +28,19 @@ function NavLink({ href, label, icon, badge = 0 }: { href: string; label: string
 
 export function AppShell({ workspaceName, userName, newLeadCount, locale, children }: { workspaceName: string; userName: string; newLeadCount: number; locale: Locale; children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const saved = searchParams.get("saved") === "1";
   const onLeadPage = pathname.startsWith("/leads");
   const [leadsOpen, setLeadsOpen] = useState(onLeadPage);
+  const [showSaved, setShowSaved] = useState(false);
   const t = copy[locale];
+
+  useEffect(() => {
+    if (!saved || pathname !== "/settings/prospecting") return;
+    setShowSaved(true);
+    const timer = window.setTimeout(() => setShowSaved(false), 3500);
+    return () => window.clearTimeout(timer);
+  }, [pathname, saved]);
 
   return <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr]">
     <aside className="border-b border-white/[0.08] bg-black/20 px-4 py-5 backdrop-blur-xl lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:border-b-0 lg:border-r">
@@ -65,6 +75,7 @@ export function AppShell({ workspaceName, userName, newLeadCount, locale, childr
       </div>
     </aside>
     <main className="min-w-0 p-5 sm:p-7 lg:p-10 xl:p-12">{children}</main>
+    {showSaved ? <div className="fixed right-5 top-5 z-[70] rounded-2xl border border-emerald-400/25 bg-slate-950/95 px-4 py-3 text-sm font-semibold text-emerald-200 shadow-2xl shadow-black/40 backdrop-blur-xl">✓ {locale === "fi" ? "Myyntiprofiili tallennettu" : "Sales profile saved"}</div> : null}
     <LeadFlowCopilot locale={locale} />
   </div>;
 }
