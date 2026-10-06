@@ -40,7 +40,22 @@ function targetsServiceBusinesses(profileText: string) {
 const SERVICE_INDUSTRY_HINTS = [
   "palvel", "konsult", "kirjanp", "tilitoim", "mainos", "markkin", "siivous", "huolto",
   "asennus", "korjaus", "koulutus", "suunnittelu", "ohjelmisto", "it-", "kuljetus",
-  "terveys", "kauneus", "ravintola", "majoitus", "henkilöst", "rekry",
+  "terveys", "kauneus", "ravintola", "majoitus", "henkilöst", "rekry", "lakiasia",
+  "arkkitehti", "insinööri", "valokuva", "media", "viestint", "isännöinti", "vuokraus",
+];
+
+const PROPERTY_FORMS = [
+  "asunto-osakeyhtiö", "asunto-osakeyhtio", "kiinteistöosakeyhtiö", "kiinteistoosakeyhtio",
+  "keskinäinen kiinteistöosakeyhtiö", "keskinainen kiinteistoosakeyhtio",
+];
+
+const NONPROFIT_FORMS = ["yhdistys", "säätiö", "saatio", "association", "foundation"];
+
+const WEAK_GENERAL_INDUSTRIES = [
+  "asuntojen ja asuinkiinteistöjen hallinta",
+  "muiden kiinteistöjen vuokraus ja hallinta",
+  "holdingyhtiöiden toiminta",
+  "holding-yhtiöiden toiminta",
 ];
 
 export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileForRanking) {
@@ -67,24 +82,34 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       if (excludedCompanies.some((value) => name.includes(value))) return null;
       if (excludedIndustries.some((value) => industry.includes(value))) return null;
 
-      if (!propertyTarget && ["aoy", "ash", "asy"].includes(form)) return null;
-      if (!propertyTarget && form === "koy") return null;
-      if (!nonprofitTarget && ["ayh", "sää"].includes(form)) return null;
+      if (!propertyTarget && includesAny(form, PROPERTY_FORMS)) return null;
+      if (!propertyTarget && includesAny(industry, ["asuntojen ja asuinkiinteistöjen hallinta"])) return null;
+      if (!nonprofitTarget && includesAny(form, NONPROFIT_FORMS)) return null;
 
       let score = 20;
       const reasons: string[] = [];
 
-      if (form === "oy") {
+      if (includesAny(form, ["osakeyhtiö", "limited company"])) {
         score += 10;
         reasons.push("aktiivinen osakeyhtiö");
       }
 
-      if (serviceTarget && includesAny(industry, SERVICE_INDUSTRY_HINTS)) {
-        score += 18;
-        reasons.push("toimiala muistuttaa tavoiteltua palveluyritystä");
+      const serviceIndustry = includesAny(industry, SERVICE_INDUSTRY_HINTS);
+      if (serviceTarget && serviceIndustry) {
+        score += 22;
+        reasons.push("toimiala sopii tavoiteltuun palveluyritysprofiiliin");
+      } else if (serviceTarget && industry) {
+        score -= 10;
       }
 
-      if (profile.industries.length && profile.industries.some((value) => industry.includes(text(value)))) {
+      if (includesAny(industry, WEAK_GENERAL_INDUSTRIES) && !propertyTarget) {
+        score -= 25;
+      }
+
+      if (profile.industries.length && profile.industries.some((value) => {
+        const wanted = text(value);
+        return wanted && (industry.includes(wanted) || wanted.includes(industry));
+      })) {
         score += 25;
         reasons.push("toimiala vastaa myyntiprofiilia");
       }
@@ -93,7 +118,7 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
         score += 30;
         reasons.push("verkkosivua ei löytynyt PRH/YTJ-tiedoista");
       } else if (wantsWebsiteSignals && lead.website) {
-        score += 12;
+        score += 15;
         reasons.push("verkkosivu voidaan analysoida ostosignaalien varalta");
       }
 
@@ -103,12 +128,12 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
           score += 25;
           reasons.push("yritys on rekisteröity hiljattain");
         } else if (ageMonths <= 36) {
-          score += 10;
+          score += 12;
           reasons.push("yritys on melko uusi");
         }
       }
 
-      if (!lead.industry) score -= 10;
+      if (!lead.industry) score -= 12;
       if (!lead.location) score -= 5;
 
       return {
@@ -121,5 +146,9 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       };
     })
     .filter((lead): lead is DiscoveredLead => Boolean(lead))
-    .sort((a, b) => (b.discoveryScore ?? 0) - (a.discoveryScore ?? 0));
+    .sort((a, b) => {
+      const scoreDiff = (b.discoveryScore ?? 0) - (a.discoveryScore ?? 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return (b.registrationDate ?? "").localeCompare(a.registrationDate ?? "");
+    });
 }
