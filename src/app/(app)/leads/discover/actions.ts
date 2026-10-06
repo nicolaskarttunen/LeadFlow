@@ -65,7 +65,7 @@ export async function discoverLeadsAction(
     }),
   ]);
 
-  const candidateLimit = provider.name === "prh-ytj" ? 200 : 10;
+  const candidateLimit = provider.name === "prh-ytj" ? 300 : 10;
   const candidates = await provider.discover({
     industry: industry || undefined,
     location: location || undefined,
