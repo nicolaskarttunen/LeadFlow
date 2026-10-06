@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
 
@@ -39,4 +40,6 @@ export async function saveProspectingSettingsAction(formData: FormData) {
   else await prisma.idealCustomerProfile.create({ data: { workspaceId: workspace.id, ...data } });
 
   revalidatePath("/settings/prospecting");
+  revalidatePath("/leads/discover");
+  redirect("/settings/prospecting?saved=1");
 }
