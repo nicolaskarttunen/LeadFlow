@@ -145,7 +145,7 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
           : lead.whyRelevant,
       };
     })
-    .filter((lead): lead is DiscoveredLead => Boolean(lead))
+    .filter((lead) => lead !== null)
     .sort((a, b) => {
       const scoreDiff = (b.discoveryScore ?? 0) - (a.discoveryScore ?? 0);
       if (scoreDiff !== 0) return scoreDiff;
