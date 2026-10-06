@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getLeadDiscoveryProvider } from "@/lib/lead-discovery";
 import type { LeadDiscoveryProviderName } from "@/lib/lead-discovery";
 import type { DiscoveredLead } from "@/lib/lead-discovery";
+import { enrichCandidateWithGoogle } from "@/lib/lead-discovery/google-enrichment";
 import { rankCandidates } from "@/lib/lead-discovery/rank-candidates";
 import { normalizeCompanyName, normalizeDomain } from "@/lib/normalize";
 import { requireWorkspace } from "@/lib/workspace";
@@ -95,14 +96,36 @@ export async function discoverLeadsAction(
     return true;
   });
 
-  const ranked = rankCandidates(newCandidates, {
+  const profileForRanking = {
     offering: companyProfile?.offering,
     targetCustomer: salesProfile?.targetCustomer,
     industries: salesProfile?.industries ?? (industry ? [industry] : []),
     keywords: keywords.length ? keywords : salesProfile?.keywords ?? [],
     excludedIndustries: salesProfile?.excludedIndustries ?? [],
     excludedCompanies: salesProfile?.excludedCompanies ?? [],
-  });
+  };
+
+  const initiallyRanked = rankCandidates(newCandidates, profileForRanking);
+  let ranked = initiallyRanked;
+
+  if (provider.name === "prh-ytj" && initiallyRanked.length) {
+    const enrichmentPool = initiallyRanked.slice(0, 12);
+    const enriched: DiscoveredLead[] = [];
+
+    for (const candidate of enrichmentPool) {
+      try {
+        enriched.push(await enrichCandidateWithGoogle(candidate, workspace.id));
+      } catch (error) {
+        console.error("Candidate Google enrichment failed", {
+          companyName: candidate.companyName,
+          error,
+        });
+        enriched.push(candidate);
+      }
+    }
+
+    ranked = rankCandidates(enriched, profileForRanking);
+  }
 
   const results = ranked.slice(0, 10);
   if (!results.length) {
@@ -193,6 +216,8 @@ export async function addDiscoveredLeadsAction(
         metadata: {
           provider: item.provider ?? "mock",
           providerPlaceId: item.providerPlaceId ?? null,
+          googlePlaceId: item.googlePlaceId ?? null,
+          websiteStatus: item.websiteStatus ?? "UNKNOWN",
           discoveryScore: item.discoveryScore ?? null,
           discoveryReasons: item.discoveryReasons ?? [],
           reviewed: true,
