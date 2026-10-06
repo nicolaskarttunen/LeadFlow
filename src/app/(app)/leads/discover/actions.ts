@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getLeadDiscoveryProvider } from "@/lib/lead-discovery";
 import type { LeadDiscoveryProviderName } from "@/lib/lead-discovery";
 import type { DiscoveredLead } from "@/lib/lead-discovery";
+import { rerankCandidatesWithAI } from "@/lib/lead-discovery/ai-candidate-ranker";
 import { enrichCandidateWithGoogle } from "@/lib/lead-discovery/google-enrichment";
 import { rankCandidates } from "@/lib/lead-discovery/rank-candidates";
 import { normalizeCompanyName, normalizeDomain } from "@/lib/normalize";
@@ -109,7 +110,9 @@ export async function discoverLeadsAction(
   let ranked = initiallyRanked;
 
   if (provider.name === "prh-ytj" && initiallyRanked.length) {
-    const enrichmentPool = initiallyRanked.slice(0, 12);
+    const aiEvaluated = await rerankCandidatesWithAI(initiallyRanked, profileForRanking);
+    const profileRanked = rankCandidates(aiEvaluated, profileForRanking);
+    const enrichmentPool = profileRanked.slice(0, 12);
     const enriched: DiscoveredLead[] = [];
 
     for (const candidate of enrichmentPool) {
@@ -220,6 +223,8 @@ export async function addDiscoveredLeadsAction(
           websiteStatus: item.websiteStatus ?? "UNKNOWN",
           discoveryScore: item.discoveryScore ?? null,
           discoveryReasons: item.discoveryReasons ?? [],
+          profileFitScore: item.profileFitScore ?? null,
+          profileFitReason: item.profileFitReason ?? null,
           reviewed: true,
         },
       },
