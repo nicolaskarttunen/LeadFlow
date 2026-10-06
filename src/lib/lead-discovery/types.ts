@@ -22,6 +22,9 @@ export type DiscoveredLead = {
   companyForm?: string;
   discoveryScore?: number;
   discoveryReasons?: string[];
+  websiteStatus?: "FOUND" | "MISSING" | "UNKNOWN";
+  googlePlaceId?: string;
+  googleMatchName?: string;
 };
 
 export interface LeadDiscoveryProvider {
