@@ -122,6 +122,7 @@ export class PrhLeadDiscoveryProvider implements LeadDiscoveryProvider {
           companyName: name,
           website,
           domain: website,
+          websiteStatus: website ? "FOUND" as const : "UNKNOWN" as const,
           industry,
           location: companyLocation(company) ?? query.location,
           description: `PRH/YTJ Y-tunnus: ${businessId}.`,
