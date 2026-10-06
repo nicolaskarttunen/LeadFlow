@@ -6,12 +6,19 @@ type PrhCompany = {
   names?: Array<{ name?: string; version?: number; endDate?: string | null }>;
   mainBusinessLine?: { type?: string; descriptions?: DescriptionEntry[] };
   website?: { url?: string };
-  companyForms?: Array<{ type?: string; version?: number; endDate?: string | null }>;
+  companyForms?: Array<{ type?: string; descriptions?: DescriptionEntry[]; version?: number; endDate?: string | null }>;
   companySituations?: Array<{ type?: string; endDate?: string | null }>;
-  addresses?: Array<{ type?: number; street?: string | null; postCode?: string | null; postOffices?: Array<{ city?: string; languageCode?: string }> }>;
+  addresses?: Array<{
+    type?: number;
+    street?: string | null;
+    postCode?: string | null;
+    postOffices?: Array<{ city?: string; languageCode?: string }>;
+  }>;
+  tradeRegisterStatus?: string;
   registrationDate?: string | null;
   endDate?: string | null;
 };
+
 type PrhResponse = { totalResults?: number; companies?: PrhCompany[] };
 
 function description(entries?: DescriptionEntry[]) {
@@ -36,20 +43,20 @@ function companyLocation(company: PrhCompany) {
 }
 
 function companyForm(company: PrhCompany) {
-  return company.companyForms?.find((item) => item.version === 1 && !item.endDate)?.type
-    ?? company.companyForms?.find((item) => !item.endDate)?.type
-    ?? company.companyForms?.[0]?.type;
+  const current = company.companyForms?.find((item) => item.version === 1 && !item.endDate)
+    ?? company.companyForms?.find((item) => !item.endDate)
+    ?? company.companyForms?.[0];
+  return description(current?.descriptions) ?? current?.type;
 }
 
-function recentRegistrationStart(keywords: string[] | undefined) {
+function broadRegistrationStart(keywords: string[] | undefined) {
   const wantsNewCompany = (keywords ?? []).some((keyword) => {
     const value = keyword.toLowerCase();
     return value.includes("uusi yritys") || value.includes("new company");
   });
-  if (!wantsNewCompany) return undefined;
 
   const date = new Date();
-  date.setMonth(date.getMonth() - 18);
+  date.setMonth(date.getMonth() - (wantsNewCompany ? 36 : 84));
   return date.toISOString().slice(0, 10);
 }
 
@@ -63,8 +70,11 @@ export class PrhLeadDiscoveryProvider implements LeadDiscoveryProvider {
 
     if (query.location) baseParams.set("location", query.location);
     if (query.industry) baseParams.set("mainBusinessLine", query.industry);
-    const registrationDateStart = recentRegistrationStart(query.keywords);
-    if (registrationDateStart) baseParams.set("registrationDateStart", registrationDateStart);
+
+    const broadSearch = !query.industry && !query.location;
+    if (broadSearch) {
+      baseParams.set("registrationDateStart", broadRegistrationStart(query.keywords));
+    }
 
     const companies: PrhCompany[] = [];
     for (let page = 1; page <= pages; page += 1) {
@@ -75,6 +85,7 @@ export class PrhLeadDiscoveryProvider implements LeadDiscoveryProvider {
         headers: { Accept: "application/json" },
         cache: "no-store",
       });
+
       if (!response.ok) {
         const details = await response.text();
         console.error("PRH/YTJ discovery failed", response.status, details);
@@ -93,6 +104,7 @@ export class PrhLeadDiscoveryProvider implements LeadDiscoveryProvider {
         const businessId = company.businessId?.value;
         if (!businessId || seen.has(businessId)) return false;
         if (company.endDate || !companyName(company)) return false;
+        if (company.tradeRegisterStatus && company.tradeRegisterStatus !== "1") return false;
         if (company.companySituations?.some((situation) => !situation.endDate)) return false;
         seen.add(businessId);
         return true;
@@ -103,6 +115,7 @@ export class PrhLeadDiscoveryProvider implements LeadDiscoveryProvider {
         const industry = description(company.mainBusinessLine?.descriptions) ?? query.industry;
         const website = company.website?.url || undefined;
         const businessId = company.businessId!.value!;
+
         return {
           provider: this.name,
           providerPlaceId: businessId,
@@ -112,7 +125,7 @@ export class PrhLeadDiscoveryProvider implements LeadDiscoveryProvider {
           industry,
           location: companyLocation(company) ?? query.location,
           description: `PRH/YTJ Y-tunnus: ${businessId}.`,
-          whyRelevant: `PRH/YTJ-kandidaatti, joka arvioidaan Myyntiprofiilisi perusteella.`,
+          whyRelevant: "PRH/YTJ-kandidaatti, joka arvioidaan Myyntiprofiilisi perusteella.",
           registrationDate: company.registrationDate ?? undefined,
           companyForm: companyForm(company),
         };
