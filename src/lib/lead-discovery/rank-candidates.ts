@@ -41,7 +41,7 @@ const SERVICE_INDUSTRY_HINTS = [
   "palvel", "konsult", "kirjanp", "tilitoim", "mainos", "markkin", "siivous", "huolto",
   "asennus", "korjaus", "koulutus", "suunnittelu", "ohjelmisto", "it-", "kuljetus",
   "terveys", "kauneus", "ravintola", "majoitus", "henkilöst", "rekry", "lakiasia",
-  "arkkitehti", "insinööri", "valokuva", "media", "viestint", "isännöinti", "vuokraus",
+  "arkkitehti", "insinööri", "valokuva", "media", "viestint", "isännöinti",
 ];
 
 const PROPERTY_FORMS = [
@@ -51,11 +51,15 @@ const PROPERTY_FORMS = [
 
 const NONPROFIT_FORMS = ["yhdistys", "säätiö", "saatio", "association", "foundation"];
 
-const WEAK_GENERAL_INDUSTRIES = [
+const PASSIVE_INDUSTRY_HINTS = [
   "asuntojen ja asuinkiinteistöjen hallinta",
   "muiden kiinteistöjen vuokraus ja hallinta",
+  "omien kiinteistöjen kauppa",
+  "kiinteistöjen vuokraus ja hallinta",
+  "kiinteistösijoittaminen",
   "holdingyhtiöiden toiminta",
   "holding-yhtiöiden toiminta",
+  "sijoitusyhtiö",
 ];
 
 export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileForRanking) {
@@ -83,8 +87,13 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       if (excludedIndustries.some((value) => industry.includes(value))) return null;
 
       if (!propertyTarget && includesAny(form, PROPERTY_FORMS)) return null;
-      if (!propertyTarget && includesAny(industry, ["asuntojen ja asuinkiinteistöjen hallinta"])) return null;
       if (!nonprofitTarget && includesAny(form, NONPROFIT_FORMS)) return null;
+
+      const passiveIndustry = includesAny(industry, PASSIVE_INDUSTRY_HINTS);
+      if (!propertyTarget && passiveIndustry) return null;
+
+      const serviceIndustry = includesAny(industry, SERVICE_INDUSTRY_HINTS);
+      if (serviceTarget && industry && !serviceIndustry && passiveIndustry) return null;
 
       let score = 20;
       const reasons: string[] = [];
@@ -94,16 +103,11 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
         reasons.push("aktiivinen osakeyhtiö");
       }
 
-      const serviceIndustry = includesAny(industry, SERVICE_INDUSTRY_HINTS);
       if (serviceTarget && serviceIndustry) {
-        score += 22;
+        score += 28;
         reasons.push("toimiala sopii tavoiteltuun palveluyritysprofiiliin");
       } else if (serviceTarget && industry) {
-        score -= 10;
-      }
-
-      if (includesAny(industry, WEAK_GENERAL_INDUSTRIES) && !propertyTarget) {
-        score -= 25;
+        score -= 15;
       }
 
       if (profile.industries.length && profile.industries.some((value) => {
@@ -115,7 +119,7 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       }
 
       if (wantsNoWebsite && !lead.website) {
-        score += 30;
+        score += serviceTarget && serviceIndustry ? 25 : 10;
         reasons.push("verkkosivua ei löytynyt PRH/YTJ-tiedoista");
       } else if (wantsWebsiteSignals && lead.website) {
         score += 15;
@@ -125,10 +129,10 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       const ageMonths = monthsSince(lead.registrationDate);
       if (wantsNewCompany && ageMonths !== null) {
         if (ageMonths <= 18) {
-          score += 25;
+          score += serviceTarget && serviceIndustry ? 20 : 8;
           reasons.push("yritys on rekisteröity hiljattain");
         } else if (ageMonths <= 36) {
-          score += 12;
+          score += serviceTarget && serviceIndustry ? 10 : 4;
           reasons.push("yritys on melko uusi");
         }
       }
