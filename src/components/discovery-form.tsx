@@ -42,7 +42,8 @@ export function DiscoveryForm({ locale, profile }: { locale: "fi" | "en"; profil
 
   const allFinland = profile.regions.some((region) => region.trim().toLowerCase() === "suomi");
   const customRegions = profile.regions.filter((region) => region.trim().toLowerCase() !== "suomi");
-  const canSearch = profile.industries.length > 0 || customRegions.length > 0;
+  const hasProfileGuidance = Boolean(profile.offering.trim()) && (profile.signals.length > 0 || Boolean(profile.targetCustomer.trim()));
+  const canSearch = profile.industries.length > 0 || customRegions.length > 0 || hasProfileGuidance;
 
   return <div className="space-y-5">
     <section className="surface rounded-3xl p-6 sm:p-7">
@@ -79,7 +80,7 @@ export function DiscoveryForm({ locale, profile }: { locale: "fi" | "en"; profil
     <form action={discover} className="surface rounded-3xl p-6 sm:p-7">
       <div className="border-b border-white/[0.07] pb-5">
         <h2 className="text-lg font-semibold text-slate-100">{fi ? "Käynnistä uusi haku" : "Start a new search"}</h2>
-        <p className="mt-1 text-xs leading-5 text-slate-500">{fi ? "Valitse tarvittaessa, mihin tallennetun Myyntiprofiilin osaan tämä haku kohdistuu." : "Choose which part of your saved Sales profile this search should focus on."}</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">{fi ? "LeadFlow käyttää Myyntiprofiiliasi haun pohjana. Toimiala ja alue voivat olla myös ilman rajausta." : "LeadFlow uses your Sales profile as the basis for discovery. Industry and region can also be unrestricted."}</p>
       </div>
 
       <input type="hidden" name="provider" value="prh-ytj" />
@@ -122,7 +123,7 @@ export function DiscoveryForm({ locale, profile }: { locale: "fi" | "en"; profil
       </div>
 
       {!canSearch ? <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-sm leading-6 text-amber-100">
-        {fi ? "Lisää Myyntiprofiiliin vähintään yksi kohdetoimiala tai tarkempi alue. Muuten haku olisi liian yleinen eikä LeadFlow voisi löytää laadukkaita liidejä." : "Add at least one target industry or a more specific region to your Sales profile. Otherwise the search would be too broad to produce quality leads."}
+        {fi ? "Täydennä Myyntiprofiiliin mitä myyt ja vähintään yksi ostosignaali tai kuvaus hyvästä asiakkaasta. Sen jälkeen LeadFlow voi hakea myös ilman toimiala- tai aluerajausta." : "Complete what you sell and add at least one buying signal or ideal-customer description. Then LeadFlow can search without an industry or region restriction."}
       </div> : null}
 
       {discovery.error ? <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3 text-sm text-red-200">{discovery.error}</div> : null}
