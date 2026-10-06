@@ -37,12 +37,17 @@ function targetsServiceBusinesses(profileText: string) {
   return includesAny(profileText, ["palveluyr", "service business", "palvelual", "professional service"]);
 }
 
+function targetsBranches(profileText: string) {
+  return includesAny(profileText, ["sivuliike", "filial", "branch office", "foreign branch"]);
+}
+
 const SERVICE_INDUSTRY_HINTS = [
-  "palvel", "konsult", "kirjanp", "tilitoim", "mainos", "markkin", "siivous", "huolto",
-  "asennus", "korjaus", "koulutus", "suunnittelu", "ohjelmisto", "it-", "kuljetus",
-  "terveys", "kauneus", "ravintola", "majoitus", "henkilöst", "rekry", "lakiasia",
-  "arkkitehti", "insinööri", "valokuva", "media", "viestint", "isännöinti", "fysioterapia",
-  "hammas", "lääkäri", "kampaamo", "parturi", "hieronta", "autokorjaamo", "remont",
+  "konsult", "kirjanp", "tilitoim", "mainos", "markkin", "siivous", "huolto",
+  "sähköasennus", "lvi", "putkiasennus", "rakennusasennus", "korjaus", "koulutus",
+  "suunnittelu", "ohjelmisto", "it-", "kuljetus", "terveys", "kauneus", "ravintola",
+  "majoitus", "henkilöst", "rekry", "lakiasia", "arkkitehti", "insinööri", "valokuva",
+  "media", "viestint", "isännöinti", "fysioterapia", "hammas", "lääkäri", "kampaamo",
+  "parturi", "hieronta", "autokorjaamo", "remont", "päivähoito", "lastenhoito",
 ];
 
 const PROPERTY_FORMS = [
@@ -51,6 +56,7 @@ const PROPERTY_FORMS = [
 ];
 
 const NONPROFIT_FORMS = ["yhdistys", "säätiö", "saatio", "association", "foundation"];
+const BRANCH_HINTS = ["sivuliike", "filial", "branch office", "ulkomaisen elinkeinonharjoittajan"];
 
 const PASSIVE_INDUSTRY_HINTS = [
   "asuntojen ja asuinkiinteistöjen hallinta",
@@ -78,6 +84,7 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
   const propertyTarget = targetsProperty(profileText);
   const nonprofitTarget = targetsNonprofits(profileText);
   const serviceTarget = targetsServiceBusinesses(profileText);
+  const branchTarget = targetsBranches(profileText);
 
   return leads
     .map((lead) => {
@@ -89,12 +96,13 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       if (excludedIndustries.some((value) => industry.includes(value))) return null;
       if (!propertyTarget && includesAny(form, PROPERTY_FORMS)) return null;
       if (!nonprofitTarget && includesAny(form, NONPROFIT_FORMS)) return null;
+      if (!branchTarget && (includesAny(name, BRANCH_HINTS) || includesAny(form, BRANCH_HINTS))) return null;
 
       const passiveIndustry = includesAny(industry, PASSIVE_INDUSTRY_HINTS);
       if (!propertyTarget && passiveIndustry) return null;
 
       const serviceIndustry = includesAny(industry, SERVICE_INDUSTRY_HINTS);
-      if (serviceTarget && profile.industries.length === 0 && industry && !serviceIndustry) return null;
+      if (lead.profileFitScore !== undefined && lead.profileFitScore < 35) return null;
 
       let score = 20;
       const reasons: string[] = [];
@@ -107,6 +115,8 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       if (serviceTarget && serviceIndustry) {
         score += 28;
         reasons.push("toimiala sopii tavoiteltuun palveluyritysprofiiliin");
+      } else if (serviceTarget && industry) {
+        score -= 15;
       }
 
       if (profile.industries.length && profile.industries.some((value) => {
@@ -115,6 +125,13 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       })) {
         score += 25;
         reasons.push("toimiala vastaa myyntiprofiilia");
+      }
+
+      if (lead.profileFitScore !== undefined) {
+        score += Math.round((lead.profileFitScore - 50) * 0.6);
+        if (lead.profileFitScore >= 70) {
+          reasons.push(lead.profileFitReason || "AI arvioi yrityksen sopivan hyvin Myyntiprofiiliin");
+        }
       }
 
       if (wantsNoWebsite && lead.websiteStatus === "MISSING") {
