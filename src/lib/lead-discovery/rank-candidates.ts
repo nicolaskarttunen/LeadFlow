@@ -41,7 +41,8 @@ const SERVICE_INDUSTRY_HINTS = [
   "palvel", "konsult", "kirjanp", "tilitoim", "mainos", "markkin", "siivous", "huolto",
   "asennus", "korjaus", "koulutus", "suunnittelu", "ohjelmisto", "it-", "kuljetus",
   "terveys", "kauneus", "ravintola", "majoitus", "henkilöst", "rekry", "lakiasia",
-  "arkkitehti", "insinööri", "valokuva", "media", "viestint", "isännöinti",
+  "arkkitehti", "insinööri", "valokuva", "media", "viestint", "isännöinti", "fysioterapia",
+  "hammas", "lääkäri", "kampaamo", "parturi", "hieronta", "autokorjaamo", "remont",
 ];
 
 const PROPERTY_FORMS = [
@@ -60,6 +61,7 @@ const PASSIVE_INDUSTRY_HINTS = [
   "holdingyhtiöiden toiminta",
   "holding-yhtiöiden toiminta",
   "sijoitusyhtiö",
+  "muualla luokittelematon muu rahoituspalvelutoiminta",
 ];
 
 export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileForRanking) {
@@ -85,7 +87,6 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
 
       if (excludedCompanies.some((value) => name.includes(value))) return null;
       if (excludedIndustries.some((value) => industry.includes(value))) return null;
-
       if (!propertyTarget && includesAny(form, PROPERTY_FORMS)) return null;
       if (!nonprofitTarget && includesAny(form, NONPROFIT_FORMS)) return null;
 
@@ -93,7 +94,7 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       if (!propertyTarget && passiveIndustry) return null;
 
       const serviceIndustry = includesAny(industry, SERVICE_INDUSTRY_HINTS);
-      if (serviceTarget && industry && !serviceIndustry && passiveIndustry) return null;
+      if (serviceTarget && profile.industries.length === 0 && industry && !serviceIndustry) return null;
 
       let score = 20;
       const reasons: string[] = [];
@@ -106,8 +107,6 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       if (serviceTarget && serviceIndustry) {
         score += 28;
         reasons.push("toimiala sopii tavoiteltuun palveluyritysprofiiliin");
-      } else if (serviceTarget && industry) {
-        score -= 15;
       }
 
       if (profile.industries.length && profile.industries.some((value) => {
@@ -118,12 +117,14 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
         reasons.push("toimiala vastaa myyntiprofiilia");
       }
 
-      if (wantsNoWebsite && !lead.website) {
-        score += serviceTarget && serviceIndustry ? 25 : 10;
-        reasons.push("verkkosivua ei löytynyt PRH/YTJ-tiedoista");
-      } else if (wantsWebsiteSignals && lead.website) {
+      if (wantsNoWebsite && lead.websiteStatus === "MISSING") {
+        score += serviceTarget && serviceIndustry ? 30 : 18;
+        reasons.push("Google-yritystiedossa ei ollut omaa verkkosivua");
+      } else if (wantsWebsiteSignals && lead.websiteStatus === "FOUND" && lead.website) {
         score += 15;
-        reasons.push("verkkosivu voidaan analysoida ostosignaalien varalta");
+        reasons.push("oma verkkosivu löytyi ja voidaan analysoida ostosignaalien varalta");
+      } else if (lead.websiteStatus === "UNKNOWN") {
+        score -= 5;
       }
 
       const ageMonths = monthsSince(lead.registrationDate);
