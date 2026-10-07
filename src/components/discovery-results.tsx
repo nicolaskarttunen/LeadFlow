@@ -99,6 +99,9 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
     (total, lead) => total + (lead.buyingSignals ?? []).filter((signal) => signal.confidence === "HIGH").length,
     0,
   );
+  const contactableCount = results.filter(
+    (lead) => (lead.publicEmails?.length ?? 0) > 0 || (lead.publicPhones?.length ?? 0) > 0,
+  ).length;
 
   return (
     <form ref={formRef} action={addSelected} className="surface overflow-hidden rounded-3xl">
@@ -107,14 +110,17 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
           <h2 className="font-semibold text-slate-100">{fi ? "Löydetyt yritykset" : "Found companies"}</h2>
           <p className="mt-1 text-xs text-slate-400">
             {fi
-              ? "Varmuus ja todiste näyttävät, kuinka luotettava kukin ostosignaali on. Korkean varmuuden havainnot painavat järjestyksessä eniten."
-              : "Confidence and evidence show how reliable each buying signal is. High-confidence findings rank highest."}
+              ? "LeadFlow tarkistaa samalla ostosignaalit ja julkiset yhteystiedot. Varmuus ja todiste näyttävät, kuinka luotettava kukin havainto on."
+              : "LeadFlow checks buying signals and public contact details at the same time. Confidence and evidence show how reliable each finding is."}
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap gap-2">
             <span className="w-fit rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-1 text-xs text-emerald-200">
               {verifiedCount} {fi ? "varmennettua" : "verified"}
+            </span>
+            <span className="w-fit rounded-full border border-sky-400/20 bg-sky-400/[0.08] px-3 py-1 text-xs text-sky-200">
+              {contactableCount} {fi ? "yhteystiedoilla" : "with contact details"}
             </span>
             <span className="w-fit rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-300">
               {highConfidenceCount} {fi ? "korkean varmuuden havaintoa" : "high-confidence findings"}
@@ -146,6 +152,8 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
         {results.map((lead, index) => {
           const verified = isVerifiedOpportunity(lead);
           const signalCount = lead.buyingSignals?.length ?? 0;
+          const primaryEmail = lead.publicEmails?.[0];
+          const primaryPhone = lead.publicPhones?.[0];
 
           return (
             <label
@@ -182,12 +190,28 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
                       {fi ? "Lisätutkimus tarvitaan" : "More research needed"}
                     </span>
                   )}
-                  {(lead.publicEmails?.length ?? 0) > 0 && (
+                  {primaryEmail && (
                     <span className="rounded-full border border-sky-400/20 bg-sky-400/[0.08] px-2.5 py-1 text-[11px] font-medium text-sky-200">
                       {fi ? "Sähköposti löytyi" : "Email found"}
                     </span>
                   )}
+                  {primaryPhone && (
+                    <span className="rounded-full border border-sky-400/20 bg-sky-400/[0.08] px-2.5 py-1 text-[11px] font-medium text-sky-200">
+                      {fi ? "Puhelin löytyi" : "Phone found"}
+                    </span>
+                  )}
                 </div>
+
+                {(primaryEmail || primaryPhone) && (
+                  <div className="mt-3 rounded-xl border border-sky-400/15 bg-sky-400/[0.04] px-3 py-2 text-[11px] leading-5 text-slate-300">
+                    {primaryEmail && (
+                      <div><span className="text-slate-500">{fi ? "Sähköposti:" : "Email:"}</span> {primaryEmail}</div>
+                    )}
+                    {primaryPhone && (
+                      <div><span className="text-slate-500">{fi ? "Puhelin:" : "Phone:"}</span> {primaryPhone}</div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
