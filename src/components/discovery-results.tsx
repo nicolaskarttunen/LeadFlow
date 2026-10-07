@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { addDiscoveredLeadsAction } from "@/app/(app)/leads/discover/actions";
+import { addDiscoveredLeadsWithContactsAction } from "@/app/(app)/leads/discover/add-with-contacts-action";
 import type { DiscoveredLead } from "@/lib/lead-discovery";
 
 const initial = { message: null, error: null };
@@ -45,7 +45,7 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
   const fi = locale === "fi";
   const [results, setResults] = useState<DiscoveredLead[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [state, addSelected, adding] = useActionState(addDiscoveredLeadsAction, initial);
+  const [state, addSelected, adding] = useActionState(addDiscoveredLeadsWithContactsAction, initial);
 
   useEffect(() => {
     try {
@@ -153,6 +153,11 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
                   ) : (
                     <span className="rounded-full border border-amber-400/20 bg-amber-400/[0.07] px-2.5 py-1 text-[11px] font-medium text-amber-200">
                       {fi ? "Lisätutkimus tarvitaan" : "More research needed"}
+                    </span>
+                  )}
+                  {(lead.publicEmails?.length ?? 0) > 0 && (
+                    <span className="rounded-full border border-sky-400/20 bg-sky-400/[0.08] px-2.5 py-1 text-[11px] font-medium text-sky-200">
+                      {fi ? "Sähköposti löytyi" : "Email found"}
                     </span>
                   )}
                 </div>
