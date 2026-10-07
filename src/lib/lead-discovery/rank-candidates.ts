@@ -85,6 +85,7 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
   const nonprofitTarget = targetsNonprofits(profileText);
   const serviceTarget = targetsServiceBusinesses(profileText);
   const branchTarget = targetsBranches(profileText);
+  const minimumProfileFit = profile.industries.length === 0 ? 60 : 35;
 
   return leads
     .map((lead) => {
@@ -102,7 +103,7 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       if (!propertyTarget && passiveIndustry) return null;
 
       const serviceIndustry = includesAny(industry, SERVICE_INDUSTRY_HINTS);
-      if (lead.profileFitScore !== undefined && lead.profileFitScore < 35) return null;
+      if (lead.profileFitScore !== undefined && lead.profileFitScore < minimumProfileFit) return null;
 
       let score = 20;
       const reasons: string[] = [];
