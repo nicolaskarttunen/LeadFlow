@@ -24,36 +24,40 @@ export async function ensureWorkspaceSubscription(workspaceId: string) {
     where: { workspaceId },
   });
 
-  if (existing) {
-    const isUninitializedLegacySubscription = existing.status === "inactive"
-      && !existing.stripeCustomerId
-      && !existing.stripeSubscriptionId
-      && !existing.currentPeriodStart
-      && !existing.currentPeriodEnd;
+  if (existing) return existing;
 
-    if (!isUninitializedLegacySubscription) return existing;
-
-    const { now, trial, periodEnd } = trialWindow();
-    return prisma.subscription.update({
-      where: { workspaceId },
-      data: {
-        plan: trial.id,
-        status: "trialing",
-        quotas: {
-          verifiedLeadLimit: trial.verifiedLeadLimit,
-          trialDays: trial.trialDays ?? 14,
-        },
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
+  const trial = BILLING_PLANS.TRIAL;
+  return prisma.subscription.create({
+    data: {
+      workspaceId,
+      plan: trial.id,
+      status: "not_started",
+      quotas: {
+        verifiedLeadLimit: trial.verifiedLeadLimit,
+        trialDays: trial.trialDays ?? 14,
       },
-    });
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+    },
+  });
+}
+
+export async function activateWorkspaceTrial(workspaceId: string) {
+  const subscription = await ensureWorkspaceSubscription(workspaceId);
+
+  if (subscription.status === "trialing" || subscription.status === "active") {
+    return subscription;
+  }
+
+  if (subscription.status === "trial_expired") {
+    throw new Error("The free trial has already been used for this workspace.");
   }
 
   const { now, trial, periodEnd } = trialWindow();
 
-  return prisma.subscription.create({
+  return prisma.subscription.update({
+    where: { workspaceId },
     data: {
-      workspaceId,
       plan: trial.id,
       status: "trialing",
       quotas: {
@@ -99,6 +103,7 @@ export async function getBillingOverview(workspaceId: string) {
   const trialDaysRemaining = subscription.status === "trialing" && subscription.currentPeriodEnd
     ? Math.max(0, Math.ceil((subscription.currentPeriodEnd.getTime() - now.getTime()) / 86_400_000))
     : null;
+  const trialNotStarted = subscription.status === "not_started" || subscription.status === "inactive";
 
   return {
     subscription,
@@ -107,6 +112,8 @@ export async function getBillingOverview(workspaceId: string) {
     limit,
     remaining,
     trialDaysRemaining,
+    trialNotStarted,
+    canStartTrial: trialNotStarted,
     canProspect: subscription.status === "active" || (subscription.status === "trialing" && remaining > 0),
   };
 }
@@ -114,8 +121,12 @@ export async function getBillingOverview(workspaceId: string) {
 export async function incrementVerifiedLeadUsage(workspaceId: string, quantity: number) {
   if (quantity <= 0) return getBillingOverview(workspaceId);
 
-  const subscription = await ensureWorkspaceSubscription(workspaceId);
-  const periodStart = subscription.currentPeriodStart ?? subscription.createdAt;
+  const overview = await getBillingOverview(workspaceId);
+  if (!overview.canProspect || !overview.subscription.currentPeriodStart) {
+    throw new Error("An active trial or subscription is required before using verified lead credits.");
+  }
+
+  const periodStart = overview.subscription.currentPeriodStart;
 
   await prisma.usageRecord.upsert({
     where: {
@@ -143,7 +154,8 @@ export async function refundVerifiedLeadUsage(workspaceId: string, quantity: num
   if (quantity <= 0) return getBillingOverview(workspaceId);
 
   const subscription = await ensureWorkspaceSubscription(workspaceId);
-  const periodStart = subscription.currentPeriodStart ?? subscription.createdAt;
+  const periodStart = subscription.currentPeriodStart;
+  if (!periodStart) return getBillingOverview(workspaceId);
 
   const current = await prisma.usageRecord.findFirst({
     where: {
