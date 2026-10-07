@@ -18,8 +18,13 @@ type AIResult = {
 
 type AIResponse = { results?: AIResult[] };
 
+type RerankOptions = {
+  targetStrongCandidates?: number;
+};
+
 const AI_BATCH_SIZE = 30;
-const TARGET_STRONG_CANDIDATES = 10;
+const DEFAULT_TARGET_STRONG_CANDIDATES = 10;
+const MAX_TARGET_STRONG_CANDIDATES = 40;
 const BROAD_SEARCH_MINIMUM_FIT = 70;
 const TARGETED_SEARCH_MINIMUM_FIT = 35;
 
@@ -121,6 +126,7 @@ You MUST return exactly one result for every supplied candidate id. Do not omit 
 export async function rerankCandidatesWithAI(
   leads: DiscoveredLead[],
   profile: SalesProfileForAI,
+  options: RerankOptions = {},
 ): Promise<DiscoveredLead[]> {
   if (!leads.length) return [];
 
@@ -129,6 +135,14 @@ export async function rerankCandidatesWithAI(
       .slice(0, AI_BATCH_SIZE)
       .map((lead) => failedEvaluation(lead, "AI-esikarsinta ei ole käytettävissä."));
   }
+
+  const targetStrongCandidates = Math.max(
+    1,
+    Math.min(
+      options.targetStrongCandidates ?? DEFAULT_TARGET_STRONG_CANDIDATES,
+      MAX_TARGET_STRONG_CANDIDATES,
+    ),
+  );
 
   const client = new OpenAI();
   const evaluated: DiscoveredLead[] = [];
@@ -145,7 +159,7 @@ export async function rerankCandidatesWithAI(
       (lead) => (lead.profileFitScore ?? 0) >= threshold,
     ).length;
 
-    if (strongCount >= TARGET_STRONG_CANDIDATES) break;
+    if (strongCount >= targetStrongCandidates) break;
   }
 
   return evaluated.sort((a, b) => {
