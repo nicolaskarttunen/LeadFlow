@@ -38,6 +38,7 @@ export type DiscoveredLead = {
   buyingSignals?: BuyingSignal[];
   buyingSignalSummary?: string;
   recommendedAngle?: string;
+  publicEmails?: string[];
   googlePlaceId?: string;
   googleMatchName?: string;
 };
