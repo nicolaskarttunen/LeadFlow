@@ -3,7 +3,7 @@ import net from "node:net";
 
 const MAX_BYTES = 750_000;
 const TIMEOUT_MS = 8_000;
-const MAX_CONTACT_PAGES = 2;
+const MAX_CONTACT_PAGES = 4;
 
 function isPrivateIp(ip: string) {
   if (net.isIPv4(ip)) {
@@ -30,7 +30,15 @@ async function assertPublicUrl(value: string) {
 }
 
 function decodeHtml(value: string) {
-  return value.replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&nbsp;/gi, " ");
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_match, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_match, decimal: string) => String.fromCodePoint(Number.parseInt(decimal, 10)))
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&nbsp;/gi, " ");
 }
 
 function cleanText(value?: string | null) {
@@ -53,50 +61,121 @@ function visibleText(html: string) {
   );
 }
 
-function extractEmails(html: string) {
+function validEmail(value: string) {
   const blockedLocalParts = new Set(["noreply", "no-reply", "donotreply", "do-not-reply"]);
   const blockedTlds = new Set(["png", "jpg", "jpeg", "webp", "svg", "gif", "css", "js"]);
+  const email = value.toLowerCase().trim().replace(/[),.;:]+$/g, "");
+  const [local, domain] = email.split("@");
+  if (!local || !domain || blockedLocalParts.has(local)) return null;
+  const tld = domain.split(".").pop() ?? "";
+  if (blockedTlds.has(tld)) return null;
+  return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(email) ? email : null;
+}
 
-  return Array.from(
-    new Set(
-      (decodeHtml(html).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [])
-        .map((email) => email.toLowerCase().replace(/^mailto:/, "").trim())
-        .filter((email) => {
-          const [local, domain] = email.split("@");
-          if (!local || !domain || blockedLocalParts.has(local)) return false;
-          const tld = domain.split(".").pop() ?? "";
-          return !blockedTlds.has(tld);
-        }),
-    ),
-  ).slice(0, 10);
+function decodeCloudflareEmail(encoded: string) {
+  if (!/^[0-9a-f]+$/i.test(encoded) || encoded.length < 4 || encoded.length % 2 !== 0) return null;
+  try {
+    const key = Number.parseInt(encoded.slice(0, 2), 16);
+    let value = "";
+    for (let index = 2; index < encoded.length; index += 2) {
+      value += String.fromCharCode(Number.parseInt(encoded.slice(index, index + 2), 16) ^ key);
+    }
+    return validEmail(value);
+  } catch {
+    return null;
+  }
+}
+
+function extractEmails(html: string) {
+  const decoded = decodeHtml(html);
+  const values = new Set<string>();
+
+  for (const raw of decoded.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []) {
+    const email = validEmail(raw);
+    if (email) values.add(email);
+  }
+
+  for (const match of decoded.matchAll(/href=["']mailto:([^"'?\s>]+)(?:\?[^"']*)?["']/gi)) {
+    try {
+      const email = validEmail(decodeURIComponent(match[1] ?? ""));
+      if (email) values.add(email);
+    } catch {
+      const email = validEmail(match[1] ?? "");
+      if (email) values.add(email);
+    }
+  }
+
+  for (const match of html.matchAll(/data-cfemail=["']([0-9a-f]+)["']/gi)) {
+    const email = decodeCloudflareEmail(match[1] ?? "");
+    if (email) values.add(email);
+  }
+
+  return Array.from(values).slice(0, 10);
+}
+
+function normalizePhone(value: string) {
+  const trimmed = decodeHtml(value).replace(/^tel:/i, "").trim();
+  const cleaned = trimmed.replace(/[^\d+]/g, "");
+  const digits = cleaned.replace(/\D/g, "");
+  if (digits.length < 6 || digits.length > 15) return null;
+  return cleaned.startsWith("+") ? cleaned : trimmed.replace(/\s+/g, " ").slice(0, 30);
+}
+
+function extractPhones(html: string, text: string) {
+  const values = new Set<string>();
+
+  for (const match of decodeHtml(html).matchAll(/href=["']tel:([^"'?]+)(?:\?[^"']*)?["']/gi)) {
+    const phone = normalizePhone(match[1] ?? "");
+    if (phone) values.add(phone);
+  }
+
+  const phonePattern = /(?:\+358\s?|0)(?:\d[\s().-]?){6,12}\d/g;
+  for (const raw of text.match(phonePattern) ?? []) {
+    const phone = normalizePhone(raw);
+    if (phone) values.add(phone);
+  }
+
+  return Array.from(values).slice(0, 5);
 }
 
 function extractContactUrls(html: string, baseUrl: string) {
   const origin = new URL(baseUrl).origin;
   const urls: string[] = [];
   const seen = new Set<string>();
-  const anchorPattern = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
+  const anchorPattern = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const contactPattern = /(contact|contacts|yhteystiedot|yhteydenotto|ota[-_/ ]?yhteytta|ota[-_/ ]?yhteyttä|kontakt|kontakta| yhteys)/i;
 
-  for (const anchor of html.matchAll(anchorPattern)) {
-    const href = decodeHtml(anchor[1] ?? "").trim();
-    if (!href || href.startsWith("mailto:") || href.startsWith("tel:")) continue;
-    if (!/(contact|yhteystiedot|yhteydenotto|ota-yhteytta|ota-yhteyttä|kontakt)/i.test(href)) continue;
-
+  function addUrl(value: string) {
     try {
-      const url = new URL(href, baseUrl);
-      if (!["http:", "https:"].includes(url.protocol) || url.origin !== origin) continue;
+      const url = new URL(value, baseUrl);
+      if (!["http:", "https:"].includes(url.protocol) || url.origin !== origin) return;
       url.hash = "";
       const normalized = url.toString();
-      if (seen.has(normalized)) continue;
+      if (seen.has(normalized)) return;
       seen.add(normalized);
       urls.push(normalized);
-      if (urls.length >= MAX_CONTACT_PAGES) break;
     } catch {
-      continue;
+      return;
     }
   }
 
-  return urls;
+  for (const anchor of html.matchAll(anchorPattern)) {
+    const href = decodeHtml(anchor[1] ?? "").trim();
+    const label = cleanText(anchor[2] ?? "") ?? "";
+    if (!href || href.startsWith("mailto:") || href.startsWith("tel:")) continue;
+    if (!contactPattern.test(`${href} ${label}`)) continue;
+    addUrl(href);
+    if (urls.length >= MAX_CONTACT_PAGES) break;
+  }
+
+  if (urls.length < MAX_CONTACT_PAGES) {
+    for (const path of ["/yhteystiedot", "/ota-yhteytta", "/contact", "/contacts", "/kontakt"]) {
+      addUrl(path);
+      if (urls.length >= MAX_CONTACT_PAGES) break;
+    }
+  }
+
+  return urls.slice(0, MAX_CONTACT_PAGES);
 }
 
 type FetchedPage = {
@@ -178,6 +257,8 @@ export type WebsiteResearch = {
   h1: string | null;
   emails: string[];
   emailSources: Array<{ email: string; sourceUrl: string }>;
+  phones: string[];
+  phoneSources: Array<{ phone: string; sourceUrl: string }>;
   hasPhone: boolean;
   hasContactLink: boolean;
   hasPrimaryCta: boolean;
@@ -196,10 +277,11 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
   const h1 = match(html, /<h1[^>]*>([\s\S]*?)<\/h1>/i);
   const contactUrls = extractContactUrls(html, finalUrl);
   const emailSourceMap = new Map<string, string>();
+  const phoneSourceMap = new Map<string, string>();
 
   for (const email of extractEmails(html)) emailSourceMap.set(email, finalUrl);
+  for (const phone of extractPhones(html, pageText)) phoneSourceMap.set(phone, finalUrl);
 
-  let hasPhone = /(?:\+358|0)\s?(?:\d[\s-]?){6,12}/.test(pageText);
   const hasContactLink = contactUrls.length > 0;
   const hasPrimaryCta = /(ota yhteyttä|pyydä tarjous|varaa aika|varaa nyt|tilaa|kysy lisää|request a quote|contact us|book now|book an appointment|get in touch)/i.test(pageText);
 
@@ -209,7 +291,9 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
       for (const email of extractEmails(contactPage.html)) {
         if (!emailSourceMap.has(email)) emailSourceMap.set(email, contactPage.finalUrl);
       }
-      hasPhone ||= /(?:\+358|0)\s?(?:\d[\s-]?){6,12}/.test(contactPage.pageText);
+      for (const phone of extractPhones(contactPage.html, contactPage.pageText)) {
+        if (!phoneSourceMap.has(phone)) phoneSourceMap.set(phone, contactPage.finalUrl);
+      }
     } catch (error) {
       console.error("Contact page research failed", { contactUrl, error });
     }
@@ -218,6 +302,9 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
   const emailSources = Array.from(emailSourceMap.entries())
     .slice(0, 10)
     .map(([email, sourceUrl]) => ({ email, sourceUrl }));
+  const phoneSources = Array.from(phoneSourceMap.entries())
+    .slice(0, 5)
+    .map(([phone, sourceUrl]) => ({ phone, sourceUrl }));
 
   return {
     finalUrl,
@@ -227,7 +314,9 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
     h1,
     emails: emailSources.map((item) => item.email),
     emailSources,
-    hasPhone,
+    phones: phoneSources.map((item) => item.phone),
+    phoneSources,
+    hasPhone: phoneSources.length > 0,
     hasContactLink,
     hasPrimaryCta,
     visibleTextLength: pageText.length,
