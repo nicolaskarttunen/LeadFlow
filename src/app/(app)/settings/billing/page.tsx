@@ -88,15 +88,18 @@ export default async function BillingSettingsPage() {
         <div>
           <h2 className="text-xl font-semibold text-slate-100">{fi ? "Valitse paketti" : "Choose a plan"}</h2>
           <p className="mt-1 text-sm text-slate-500">
-            {fi ? "Hinnat ovat kuukausihintoja. Stripe-maksaminen kytketään seuraavassa vaiheessa." : "Prices are monthly. Stripe checkout will be connected in the next step."}
+            {fi ? "Hinnat ovat kuukausihintoja. Avaa paketin tiedot nähdäksesi tarkalleen, mitä siihen kuuluu." : "Prices are monthly. Expand a plan to see exactly what is included."}
           </p>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-3">
+      <div className="mt-5 grid items-start gap-4 lg:grid-cols-3">
         {PAID_PLAN_IDS.map((planId) => {
           const plan = BILLING_PLANS[planId];
           const highlighted = planId === "GROWTH";
+          const included = fi ? plan.featuresFi : plan.featuresEn;
+          const notIncluded = fi ? plan.notIncludedFi : plan.notIncludedEn;
+
           return (
             <div
               key={plan.id}
@@ -110,30 +113,67 @@ export default async function BillingSettingsPage() {
                   </span>
                 ) : null}
               </div>
+
               <div className="mt-4 flex items-end gap-1">
                 <span className="text-3xl font-semibold text-white">{plan.priceMonthlyEur} €</span>
                 <span className="pb-1 text-sm text-slate-500">/{fi ? "kk" : "mo"}</span>
               </div>
-              <p className="mt-3 text-sm leading-6 text-slate-400">
+
+              <p className="mt-3 min-h-12 text-sm leading-6 text-slate-400">
                 {fi ? plan.descriptionFi : plan.descriptionEn}
               </p>
+
               <div className="mt-5 rounded-2xl border border-white/[0.08] bg-black/10 px-4 py-3">
-                <div className="text-sm font-medium text-slate-200">
+                <div className="text-sm font-semibold text-slate-100">
                   {plan.verifiedLeadLimit} {fi ? "varmennettua liidiä / kk" : "verified leads / month"}
                 </div>
               </div>
-              <ul className="mt-5 space-y-2 text-sm text-slate-400">
-                {(fi ? plan.featuresFi : plan.featuresEn).map((feature) => (
-                  <li key={feature} className="flex gap-2">
-                    <span className="text-emerald-300">✓</span>
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
+
+              <details className="group mt-5 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-medium text-slate-200 transition hover:bg-white/[0.035] [&::-webkit-details-marker]:hidden">
+                  <span>{fi ? "Näytä kaikki ominaisuudet" : "Show all features"}</span>
+                  <span className="text-base text-slate-500 transition-transform duration-200 group-open:rotate-180">⌄</span>
+                </summary>
+
+                <div className="border-t border-white/[0.07] px-4 pb-4 pt-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300/80">
+                    {fi ? "Sisältyy" : "Included"}
+                  </div>
+                  <ul className="mt-3 space-y-2.5 text-sm leading-5 text-slate-300">
+                    {included.map((feature) => (
+                      <li key={feature} className="flex gap-2.5">
+                        <span className="mt-0.5 shrink-0 text-emerald-300">✓</span>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {notIncluded.length > 0 ? (
+                    <div className="mt-5 border-t border-white/[0.07] pt-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        {fi ? "Ei sisälly" : "Not included"}
+                      </div>
+                      <ul className="mt-3 space-y-2.5 text-sm leading-5 text-slate-500">
+                        {notIncluded.map((feature) => (
+                          <li key={feature} className="flex gap-2.5">
+                            <span className="mt-0.5 shrink-0">—</span>
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-xl border border-violet-400/15 bg-violet-400/[0.05] px-3.5 py-3 text-xs leading-5 text-violet-200">
+                      {fi ? "Pro sisältää LeadFlow'n koko suunnitellun ominaisuuspaketin ja korkeimmat käyttörajat." : "Pro includes the full planned LeadFlow feature set and the highest usage limits."}
+                    </div>
+                  )}
+                </div>
+              </details>
+
               <button
                 type="button"
                 disabled
-                className={`mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold ${highlighted ? "bg-violet-500 text-white" : "border border-white/10 bg-white/[0.04] text-slate-200"} cursor-not-allowed opacity-60`}
+                className={`mt-5 w-full rounded-xl px-4 py-3 text-sm font-semibold ${highlighted ? "bg-violet-500 text-white" : "border border-white/10 bg-white/[0.04] text-slate-200"} cursor-not-allowed opacity-60`}
               >
                 {fi ? "Maksaminen tulossa" : "Checkout coming next"}
               </button>
