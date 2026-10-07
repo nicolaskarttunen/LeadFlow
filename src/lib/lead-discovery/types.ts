@@ -6,6 +6,15 @@ export type LeadDiscoveryQuery = {
   limit: number;
 };
 
+export type BuyingSignalConfidence = "HIGH" | "MEDIUM";
+
+export type BuyingSignal = {
+  key: string;
+  label: string;
+  evidence: string;
+  confidence: BuyingSignalConfidence;
+};
+
 export type DiscoveredLead = {
   provider?: string;
   providerPlaceId?: string;
@@ -25,6 +34,10 @@ export type DiscoveredLead = {
   profileFitScore?: number;
   profileFitReason?: string;
   websiteStatus?: "FOUND" | "MISSING" | "UNKNOWN";
+  websiteResearchStatus?: "ANALYZED" | "NO_WEBSITE_LISTED" | "UNVERIFIED";
+  buyingSignals?: BuyingSignal[];
+  buyingSignalSummary?: string;
+  recommendedAngle?: string;
   googlePlaceId?: string;
   googleMatchName?: string;
 };
