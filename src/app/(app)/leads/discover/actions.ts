@@ -9,6 +9,7 @@ import { rerankCandidatesWithAI } from "@/lib/lead-discovery/ai-candidate-ranker
 import { verifyBuyingSignalsForCandidates } from "@/lib/lead-discovery/buying-signals";
 import { enrichCandidateWithGoogle } from "@/lib/lead-discovery/google-enrichment";
 import { rankCandidates } from "@/lib/lead-discovery/rank-candidates";
+import { discoverSmartCandidates } from "@/lib/lead-discovery/smart-discovery";
 import { normalizeCompanyName, normalizeDomain } from "@/lib/normalize";
 import { requireWorkspace } from "@/lib/workspace";
 import { reserveGooglePlacesTextSearch } from "@/lib/lead-discovery/usage";
@@ -94,14 +95,33 @@ export async function discoverLeadsAction(
     }),
   ]);
 
+  const profileForRanking = {
+    offering: companyProfile?.offering,
+    targetCustomer: salesProfile?.targetCustomer,
+    industries: salesProfile?.industries ?? (industry ? [industry] : []),
+    keywords: keywords.length ? keywords : salesProfile?.keywords ?? [],
+    excludedIndustries: salesProfile?.excludedIndustries ?? [],
+    excludedCompanies: salesProfile?.excludedCompanies ?? [],
+  };
+
   const candidateLimit = provider.name === "prh-ytj" ? 600 : 10;
-  const candidates = await provider.discover({
-    industry: industry || undefined,
-    location: location || undefined,
-    companySize: companySize || undefined,
-    keywords,
-    limit: candidateLimit,
-  });
+  const candidates = await discoverSmartCandidates(
+    provider,
+    {
+      industry: industry || undefined,
+      location: location || undefined,
+      companySize: companySize || undefined,
+      keywords,
+      limit: candidateLimit,
+    },
+    {
+      offering: profileForRanking.offering,
+      targetCustomer: profileForRanking.targetCustomer,
+      industries: profileForRanking.industries,
+      keywords: profileForRanking.keywords,
+      excludedIndustries: profileForRanking.excludedIndustries,
+    },
+  );
 
   const existingNames = new Set(existingLeads.map((lead) => lead.companyNameNormalized).filter(Boolean));
   const existingDomains = new Set(existingLeads.map((lead) => lead.domainNormalized).filter(Boolean));
@@ -123,15 +143,6 @@ export async function discoverLeadsAction(
     if (providerKey && existingProviderIds.has(providerKey)) return false;
     return true;
   });
-
-  const profileForRanking = {
-    offering: companyProfile?.offering,
-    targetCustomer: salesProfile?.targetCustomer,
-    industries: salesProfile?.industries ?? (industry ? [industry] : []),
-    keywords: keywords.length ? keywords : salesProfile?.keywords ?? [],
-    excludedIndustries: salesProfile?.excludedIndustries ?? [],
-    excludedCompanies: salesProfile?.excludedCompanies ?? [],
-  };
 
   const initiallyRanked = rankCandidates(newCandidates, profileForRanking);
   let ranked: DiscoveredLead[] = initiallyRanked;
