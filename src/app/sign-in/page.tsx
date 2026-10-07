@@ -13,8 +13,8 @@ export default async function SignInPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-5 py-12">
       <AuthCard
-        title="Welcome back"
-        subtitle="Sign in to your LeadFlow workspace."
+        title="Tervetuloa takaisin"
+        subtitle="Kirjaudu LeadFlow-työtilaasi."
       >
         <SignInForm />
       </AuthCard>
