@@ -1,3 +1,4 @@
+import { selectBusinessEmails } from "@/lib/lead-research/public-contact-selection";
 import { researchPublicWebsite } from "@/lib/lead-research/website-research";
 import type { BuyingSignal, DiscoveredLead } from "./types";
 
@@ -55,6 +56,7 @@ export async function verifyBuyingSignals(lead: DiscoveredLead): Promise<Discove
 
   try {
     const research = await researchPublicWebsite(lead.website);
+    const publicEmails = selectBusinessEmails(research.emails, research.finalUrl);
     const signals: BuyingSignal[] = [];
 
     if (!research.httpsEnabled) {
@@ -93,11 +95,11 @@ export async function verifyBuyingSignals(lead: DiscoveredLead): Promise<Discove
       ));
     }
 
-    if (!research.hasContactLink && research.emails.length === 0 && !research.hasPhone) {
+    if (!research.hasContactLink && publicEmails.length === 0 && !research.hasPhone) {
       signals.push(signal(
         "weak_contact",
         "Yhteydenotto ei näy selkeästi etusivulla",
-        "Etusivulta tai löydetyiltä yhteystietosivuilta ei löytynyt yhteydenottolinkkiä, sähköpostiosoitetta tai tunnistettavaa puhelinnumeroa.",
+        "Etusivulta tai löydetyiltä yhteystietosivuilta ei löytynyt yhteydenottolinkkiä, yrityksen sähköpostiosoitetta tai tunnistettavaa puhelinnumeroa.",
         "MEDIUM",
       ));
     }
@@ -108,7 +110,7 @@ export async function verifyBuyingSignals(lead: DiscoveredLead): Promise<Discove
       buyingSignals: signals,
       buyingSignalSummary: summary(signals),
       recommendedAngle: recommendedAngle(signals),
-      publicEmails: research.emails,
+      publicEmails,
       publicPhones: research.phones,
     };
   } catch (error) {
