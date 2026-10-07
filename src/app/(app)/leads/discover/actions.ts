@@ -17,6 +17,32 @@ import { analyzeLeadAction } from "@/app/(app)/leads/actions";
 export type DiscoveryActionState = { results: DiscoveredLead[]; error: string | null };
 export type AddDiscoveryState = { message: string | null; error: string | null };
 
+const TARGET_VERIFIED_OPPORTUNITIES = 10;
+const TARGET_STRONG_CANDIDATES = 40;
+const RESEARCH_BATCH_SIZE = 4;
+const MAX_RESEARCHED_CANDIDATES = 40;
+
+function isVerifiedOpportunity(lead: DiscoveredLead) {
+  return (lead.buyingSignals?.length ?? 0) > 0
+    && (lead.websiteResearchStatus === "ANALYZED"
+      || lead.websiteResearchStatus === "NO_WEBSITE_LISTED");
+}
+
+function sortByOpportunityQuality(leads: DiscoveredLead[]) {
+  return [...leads].sort((a, b) => {
+    const verifiedDiff = Number(isVerifiedOpportunity(b)) - Number(isVerifiedOpportunity(a));
+    if (verifiedDiff !== 0) return verifiedDiff;
+
+    const signalDiff = (b.buyingSignals?.length ?? 0) - (a.buyingSignals?.length ?? 0);
+    if (signalDiff !== 0) return signalDiff;
+
+    const fitDiff = (b.profileFitScore ?? 0) - (a.profileFitScore ?? 0);
+    if (fitDiff !== 0) return fitDiff;
+
+    return (b.discoveryScore ?? 0) - (a.discoveryScore ?? 0);
+  });
+}
+
 export async function discoverLeadsAction(
   _previousState: DiscoveryActionState,
   formData: FormData,
@@ -111,25 +137,48 @@ export async function discoverLeadsAction(
   let ranked = initiallyRanked;
 
   if (provider.name === "prh-ytj" && initiallyRanked.length) {
-    const aiEvaluated = await rerankCandidatesWithAI(initiallyRanked, profileForRanking);
+    const aiEvaluated = await rerankCandidatesWithAI(
+      initiallyRanked,
+      profileForRanking,
+      { targetStrongCandidates: TARGET_STRONG_CANDIDATES },
+    );
     const profileRanked = rankCandidates(aiEvaluated, profileForRanking);
-    const enrichmentPool = profileRanked.slice(0, 12);
-    const enriched: DiscoveredLead[] = [];
+    const researched: DiscoveredLead[] = [];
+    let verifiedCount = 0;
 
-    for (const candidate of enrichmentPool) {
-      try {
-        enriched.push(await enrichCandidateWithGoogle(candidate, workspace.id));
-      } catch (error) {
-        console.error("Candidate Google enrichment failed", {
-          companyName: candidate.companyName,
-          error,
-        });
-        enriched.push(candidate);
+    for (
+      let offset = 0;
+      offset < profileRanked.length
+        && researched.length < MAX_RESEARCHED_CANDIDATES
+        && verifiedCount < TARGET_VERIFIED_OPPORTUNITIES;
+      offset += RESEARCH_BATCH_SIZE
+    ) {
+      const batch = profileRanked.slice(
+        offset,
+        Math.min(offset + RESEARCH_BATCH_SIZE, MAX_RESEARCHED_CANDIDATES),
+      );
+      const enrichedBatch: DiscoveredLead[] = [];
+
+      for (const candidate of batch) {
+        try {
+          enrichedBatch.push(await enrichCandidateWithGoogle(candidate, workspace.id));
+        } catch (error) {
+          console.error("Candidate Google enrichment failed", {
+            companyName: candidate.companyName,
+            error,
+          });
+          enrichedBatch.push(candidate);
+        }
       }
+
+      const verifiedBatch = await verifyBuyingSignalsForCandidates(enrichedBatch);
+      researched.push(...verifiedBatch);
+      verifiedCount += verifiedBatch.filter(isVerifiedOpportunity).length;
     }
 
-    const buyingSignalVerified = await verifyBuyingSignalsForCandidates(enriched);
-    ranked = rankCandidates(buyingSignalVerified, profileForRanking);
+    ranked = sortByOpportunityQuality(
+      rankCandidates(researched, profileForRanking),
+    );
   }
 
   const results = ranked.slice(0, 10);
