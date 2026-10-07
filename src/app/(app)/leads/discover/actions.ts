@@ -134,7 +134,7 @@ export async function discoverLeadsAction(
   };
 
   const initiallyRanked = rankCandidates(newCandidates, profileForRanking);
-  let ranked = initiallyRanked;
+  let ranked: DiscoveredLead[] = initiallyRanked;
 
   if (provider.name === "prh-ytj" && initiallyRanked.length) {
     const aiEvaluated = await rerankCandidatesWithAI(
