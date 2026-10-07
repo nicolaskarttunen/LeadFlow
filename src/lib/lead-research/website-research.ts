@@ -3,6 +3,7 @@ import net from "node:net";
 
 const MAX_BYTES = 750_000;
 const TIMEOUT_MS = 8_000;
+const MAX_CONTACT_PAGES = 2;
 
 function isPrivateIp(ip: string) {
   if (net.isIPv4(ip)) {
@@ -52,23 +53,60 @@ function visibleText(html: string) {
   );
 }
 
-export type WebsiteResearch = {
+function extractEmails(html: string) {
+  const blockedLocalParts = new Set(["noreply", "no-reply", "donotreply", "do-not-reply"]);
+  const blockedTlds = new Set(["png", "jpg", "jpeg", "webp", "svg", "gif", "css", "js"]);
+
+  return Array.from(
+    new Set(
+      (decodeHtml(html).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [])
+        .map((email) => email.toLowerCase().replace(/^mailto:/, "").trim())
+        .filter((email) => {
+          const [local, domain] = email.split("@");
+          if (!local || !domain || blockedLocalParts.has(local)) return false;
+          const tld = domain.split(".").pop() ?? "";
+          return !blockedTlds.has(tld);
+        }),
+    ),
+  ).slice(0, 10);
+}
+
+function extractContactUrls(html: string, baseUrl: string) {
+  const origin = new URL(baseUrl).origin;
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  const anchorPattern = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
+
+  for (const anchor of html.matchAll(anchorPattern)) {
+    const href = decodeHtml(anchor[1] ?? "").trim();
+    if (!href || href.startsWith("mailto:") || href.startsWith("tel:")) continue;
+    if (!/(contact|yhteystiedot|yhteydenotto|ota-yhteytta|ota-yhteyttä|kontakt)/i.test(href)) continue;
+
+    try {
+      const url = new URL(href, baseUrl);
+      if (!["http:", "https:"].includes(url.protocol) || url.origin !== origin) continue;
+      url.hash = "";
+      const normalized = url.toString();
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      urls.push(normalized);
+      if (urls.length >= MAX_CONTACT_PAGES) break;
+    } catch {
+      continue;
+    }
+  }
+
+  return urls;
+}
+
+type FetchedPage = {
   finalUrl: string;
-  httpsEnabled: boolean;
-  pageTitle: string | null;
-  metaDescription: string | null;
-  h1: string | null;
-  emails: string[];
-  hasPhone: boolean;
-  hasContactLink: boolean;
-  hasPrimaryCta: boolean;
-  visibleTextLength: number;
+  html: string;
+  pageText: string;
 };
 
-export async function researchPublicWebsite(startUrl: string): Promise<WebsiteResearch> {
-  let initial = startUrl.trim();
-  if (!/^https?:\/\//i.test(initial)) initial = `https://${initial}`;
-  let current = (await assertPublicUrl(initial)).toString();
+async function fetchPublicHtml(startUrl: string): Promise<FetchedPage> {
+  let current = (await assertPublicUrl(startUrl)).toString();
 
   for (let redirects = 0; redirects <= 3; redirects += 1) {
     const controller = new AbortController();
@@ -97,6 +135,7 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
       continue;
     }
     if (!response.ok) throw new Error(`Website returned HTTP ${response.status}.`);
+
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
     if (!contentType.includes("text/html")) throw new Error("Website did not return HTML.");
 
@@ -117,34 +156,80 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
       }
       chunks.push(value);
     }
+
     const bytes = new Uint8Array(total);
     let offset = 0;
-    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
     const html = new TextDecoder().decode(bytes);
-    const pageText = visibleText(html);
-
-    const pageTitle = match(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-    const metaDescription = match(html, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["'][^>]*>/i)
-      ?? match(html, /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["'][^>]*>/i);
-    const h1 = match(html, /<h1[^>]*>([\s\S]*?)<\/h1>/i);
-    const emails = Array.from(new Set((html.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []).map((email) => email.toLowerCase()))).slice(0, 10);
-    const hasPhone = /(?:\+358|0)\s?(?:\d[\s-]?){6,12}/.test(pageText);
-    const hasContactLink = /<a\b[^>]+href=["'][^"']*(contact|yhteystiedot|ota-yhteytta|ota-yhteyttä)[^"']*["']/i.test(html);
-    const hasPrimaryCta = /(ota yhteyttä|pyydä tarjous|varaa aika|varaa nyt|tilaa|kysy lisää|request a quote|contact us|book now|book an appointment|get in touch)/i.test(pageText);
-
-    return {
-      finalUrl: current,
-      httpsEnabled: current.startsWith("https://"),
-      pageTitle,
-      metaDescription,
-      h1,
-      emails,
-      hasPhone,
-      hasContactLink,
-      hasPrimaryCta,
-      visibleTextLength: pageText.length,
-    };
+    return { finalUrl: current, html, pageText: visibleText(html) };
   }
 
   throw new Error("Website redirected too many times.");
+}
+
+export type WebsiteResearch = {
+  finalUrl: string;
+  httpsEnabled: boolean;
+  pageTitle: string | null;
+  metaDescription: string | null;
+  h1: string | null;
+  emails: string[];
+  emailSources: Array<{ email: string; sourceUrl: string }>;
+  hasPhone: boolean;
+  hasContactLink: boolean;
+  hasPrimaryCta: boolean;
+  visibleTextLength: number;
+};
+
+export async function researchPublicWebsite(startUrl: string): Promise<WebsiteResearch> {
+  let initial = startUrl.trim();
+  if (!/^https?:\/\//i.test(initial)) initial = `https://${initial}`;
+
+  const homepage = await fetchPublicHtml(initial);
+  const { finalUrl, html, pageText } = homepage;
+  const pageTitle = match(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
+  const metaDescription = match(html, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["'][^>]*>/i)
+    ?? match(html, /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["'][^>]*>/i);
+  const h1 = match(html, /<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  const contactUrls = extractContactUrls(html, finalUrl);
+  const emailSourceMap = new Map<string, string>();
+
+  for (const email of extractEmails(html)) emailSourceMap.set(email, finalUrl);
+
+  let hasPhone = /(?:\+358|0)\s?(?:\d[\s-]?){6,12}/.test(pageText);
+  const hasContactLink = contactUrls.length > 0;
+  const hasPrimaryCta = /(ota yhteyttä|pyydä tarjous|varaa aika|varaa nyt|tilaa|kysy lisää|request a quote|contact us|book now|book an appointment|get in touch)/i.test(pageText);
+
+  for (const contactUrl of contactUrls) {
+    try {
+      const contactPage = await fetchPublicHtml(contactUrl);
+      for (const email of extractEmails(contactPage.html)) {
+        if (!emailSourceMap.has(email)) emailSourceMap.set(email, contactPage.finalUrl);
+      }
+      hasPhone ||= /(?:\+358|0)\s?(?:\d[\s-]?){6,12}/.test(contactPage.pageText);
+    } catch (error) {
+      console.error("Contact page research failed", { contactUrl, error });
+    }
+  }
+
+  const emailSources = Array.from(emailSourceMap.entries())
+    .slice(0, 10)
+    .map(([email, sourceUrl]) => ({ email, sourceUrl }));
+
+  return {
+    finalUrl,
+    httpsEnabled: finalUrl.startsWith("https://"),
+    pageTitle,
+    metaDescription,
+    h1,
+    emails: emailSources.map((item) => item.email),
+    emailSources,
+    hasPhone,
+    hasContactLink,
+    hasPrimaryCta,
+    visibleTextLength: pageText.length,
+  };
 }
