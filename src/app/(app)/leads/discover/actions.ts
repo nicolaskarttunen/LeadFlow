@@ -6,6 +6,7 @@ import { getLeadDiscoveryProvider } from "@/lib/lead-discovery";
 import type { LeadDiscoveryProviderName } from "@/lib/lead-discovery";
 import type { DiscoveredLead } from "@/lib/lead-discovery";
 import { rerankCandidatesWithAI } from "@/lib/lead-discovery/ai-candidate-ranker";
+import { verifyBuyingSignalsForCandidates } from "@/lib/lead-discovery/buying-signals";
 import { enrichCandidateWithGoogle } from "@/lib/lead-discovery/google-enrichment";
 import { rankCandidates } from "@/lib/lead-discovery/rank-candidates";
 import { normalizeCompanyName, normalizeDomain } from "@/lib/normalize";
@@ -127,7 +128,8 @@ export async function discoverLeadsAction(
       }
     }
 
-    ranked = rankCandidates(enriched, profileForRanking);
+    const buyingSignalVerified = await verifyBuyingSignalsForCandidates(enriched);
+    ranked = rankCandidates(buyingSignalVerified, profileForRanking);
   }
 
   const results = ranked.slice(0, 10);
@@ -201,7 +203,7 @@ export async function addDiscoveredLeadsAction(
         companySize: item.companySize ?? null,
         description: item.description ?? null,
         whyRelevant: item.whyRelevant ?? null,
-        potentialService: item.potentialService ?? null,
+        potentialService: item.recommendedAngle ?? item.potentialService ?? null,
         providerName: item.provider ?? null,
         providerExternalId: item.providerPlaceId ?? null,
         source: item.provider === "google-places" || item.provider === "prh-ytj" ? "PROVIDER" : "MOCK",
@@ -221,10 +223,14 @@ export async function addDiscoveredLeadsAction(
           providerPlaceId: item.providerPlaceId ?? null,
           googlePlaceId: item.googlePlaceId ?? null,
           websiteStatus: item.websiteStatus ?? "UNKNOWN",
+          websiteResearchStatus: item.websiteResearchStatus ?? "UNVERIFIED",
           discoveryScore: item.discoveryScore ?? null,
           discoveryReasons: item.discoveryReasons ?? [],
           profileFitScore: item.profileFitScore ?? null,
           profileFitReason: item.profileFitReason ?? null,
+          buyingSignals: item.buyingSignals ?? [],
+          buyingSignalSummary: item.buyingSignalSummary ?? null,
+          recommendedAngle: item.recommendedAngle ?? null,
           reviewed: true,
         },
       },
