@@ -29,13 +29,23 @@ function isVerifiedOpportunity(lead: DiscoveredLead) {
       || lead.websiteResearchStatus === "NO_WEBSITE_LISTED");
 }
 
+function buyingSignalWeight(lead: DiscoveredLead) {
+  return (lead.buyingSignals ?? []).reduce((total, signal) => {
+    return total + (signal.confidence === "HIGH" ? 3 : 1);
+  }, 0);
+}
+
 function sortByOpportunityQuality(leads: DiscoveredLead[]) {
   return [...leads].sort((a, b) => {
     const verifiedDiff = Number(isVerifiedOpportunity(b)) - Number(isVerifiedOpportunity(a));
     if (verifiedDiff !== 0) return verifiedDiff;
 
-    const signalDiff = (b.buyingSignals?.length ?? 0) - (a.buyingSignals?.length ?? 0);
-    if (signalDiff !== 0) return signalDiff;
+    const signalWeightDiff = buyingSignalWeight(b) - buyingSignalWeight(a);
+    if (signalWeightDiff !== 0) return signalWeightDiff;
+
+    const highConfidenceDiff = (b.buyingSignals ?? []).filter((signal) => signal.confidence === "HIGH").length
+      - (a.buyingSignals ?? []).filter((signal) => signal.confidence === "HIGH").length;
+    if (highConfidenceDiff !== 0) return highConfidenceDiff;
 
     const fitDiff = (b.profileFitScore ?? 0) - (a.profileFitScore ?? 0);
     if (fitDiff !== 0) return fitDiff;
