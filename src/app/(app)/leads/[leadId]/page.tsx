@@ -6,6 +6,7 @@ import { getCurrentLocale } from "@/lib/current-locale";
 import { deleteLeadAction, researchWebsiteAction, scoreLeadAction } from "@/app/(app)/leads/actions";
 import { WebsiteResearchButton } from "@/components/website-research-button";
 import { LeadScoreButton } from "@/components/lead-score-button";
+import { EmailDraftGenerator } from "@/components/email-draft-generator";
 
 function Detail({
   label,
@@ -61,6 +62,11 @@ export default async function LeadDetailPage({
         orderBy: { createdAt: "desc" },
         take: 1,
       },
+      emailDrafts: {
+        where: { campaignId: null },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+      },
       emailMessages: {
         orderBy: { createdAt: "desc" },
         take: 10,
@@ -76,9 +82,20 @@ export default async function LeadDetailPage({
   const latestScore = lead.scores[0];
   const research = lead.researchRecords[0];
   const websiteAudit = lead.websiteAudits[0];
+  const latestDraft = lead.emailDrafts[0];
 
   const statusLabel: Record<string, string> = { NEW: fi ? "UUSI" : "NEW", APPROVED: fi ? "HYVÄKSYTTY" : "APPROVED", REVIEW: fi ? "TARKISTETTAVA" : "REVIEW", CONTACTED: fi ? "KONTAKTOITU" : "CONTACTED", REPLIED: fi ? "VASTANNUT" : "REPLIED" };
   const sourceLabel: Record<string, string> = { PROVIDER: fi ? "Hakupalvelu" : "Provider", MANUAL: fi ? "Manuaalinen" : "Manual", CSV: "CSV", MOCK: fi ? "Testidata" : "Mock" };
+  const draftStatusLabel: Record<string, string> = {
+    DRAFT: fi ? "Luonnos" : "Draft",
+    NEEDS_REVIEW: fi ? "Tarkistettava" : "Needs review",
+    APPROVED: fi ? "Hyväksytty" : "Approved",
+    SCHEDULED: fi ? "Ajastettu" : "Scheduled",
+    SENT: fi ? "Lähetetty" : "Sent",
+    REPLIED: fi ? "Vastattu" : "Replied",
+    PAUSED: fi ? "Tauolla" : "Paused",
+    REJECTED: fi ? "Hylätty" : "Rejected",
+  };
   const evidenceTypeLabel = (type: string) => fi ? ({ website: "Verkkosivu", phone: "Puhelin", address: "Osoite", industry: "Toimiala", business_id: "Y-tunnus" } as Record<string, string>)[type.toLowerCase()] ?? type : type;
   const decodeDisplayText = (value?: string | null) => value?.replaceAll("&#8211;", "–").replaceAll("&#8212;", "—").replaceAll("&amp;", "&");
   const localizeGeneratedText = (raw?: string | null) => {
@@ -97,7 +114,6 @@ export default async function LeadDetailPage({
     if (value.startsWith("Website:")) return value.replace("Website:", "Verkkosivu:");
     return value;
   };
-
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -234,6 +250,64 @@ export default async function LeadDetailPage({
                   </div>
                 ))}
               </div>
+            )}
+          </section>
+
+          <section className="rounded-3xl border border-violet-400/15 bg-violet-400/[0.035] p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="font-semibold">{fi ? "AI-sähköpostiluonnos" : "AI email draft"}</h2>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">
+                  {fi
+                    ? "Luonnos käyttää vain LeadFlow'n tallentamia varmennettuja havaintoja. Sitä ei lähetetä automaattisesti."
+                    : "The draft only uses verified findings stored by LeadFlow. It is never sent automatically."}
+                </p>
+              </div>
+              <EmailDraftGenerator leadId={lead.id} hasDraft={Boolean(latestDraft)} locale={locale} />
+            </div>
+
+            {latestDraft ? (
+              <div className="mt-5 space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-amber-400/20 bg-amber-400/[0.07] px-2.5 py-1 text-[11px] font-medium text-amber-200">
+                    {draftStatusLabel[latestDraft.status] ?? latestDraft.status}
+                  </span>
+                  {latestDraft.confidence !== null ? (
+                    <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-slate-300">
+                      {fi ? "Luonnoksen varmuus" : "Draft confidence"} {latestDraft.confidence}%
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    {fi ? "Aihe" : "Subject"}
+                  </div>
+                  <div className="mt-2 text-sm font-medium text-slate-100">{latestDraft.subject}</div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    {fi ? "Viesti" : "Message"}
+                  </div>
+                  <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-200">{latestDraft.body}</div>
+                </div>
+
+                {latestDraft.personalizationExplanation ? (
+                  <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.035] p-4">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300/80">
+                      {fi ? "Personoinnin peruste" : "Personalization basis"}
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-300">{latestDraft.personalizationExplanation}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-5 text-sm text-slate-500">
+                {fi
+                  ? "Luonnosta ei ole vielä luotu. Luo se vasta, kun yrityksen havainnot näyttävät luotettavilta."
+                  : "No draft yet. Generate one after the company findings look reliable."}
+              </p>
             )}
           </section>
 
