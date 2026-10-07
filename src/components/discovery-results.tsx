@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { addDiscoveredLeadsWithContactsAction } from "@/app/(app)/leads/discover/add-with-contacts-action";
 import type { DiscoveredLead } from "@/lib/lead-discovery";
 
@@ -43,6 +43,7 @@ function confidenceClass(confidence: "HIGH" | "MEDIUM") {
 
 export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
   const fi = locale === "fi";
+  const formRef = useRef<HTMLFormElement>(null);
   const [results, setResults] = useState<DiscoveredLead[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [state, addSelected, adding] = useActionState(addDiscoveredLeadsWithContactsAction, initial);
@@ -57,6 +58,14 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
       setLoaded(true);
     }
   }, []);
+
+  function setAllSelected(selected: boolean) {
+    formRef.current
+      ?.querySelectorAll<HTMLInputElement>('input[name="selectedLead"]')
+      .forEach((input) => {
+        input.checked = selected;
+      });
+  }
 
   if (!loaded) {
     return (
@@ -92,7 +101,7 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
   );
 
   return (
-    <form action={addSelected} className="surface overflow-hidden rounded-3xl">
+    <form ref={formRef} action={addSelected} className="surface overflow-hidden rounded-3xl">
       <div className="flex flex-col gap-3 border-b border-white/[0.07] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-semibold text-slate-100">{fi ? "Löydetyt yritykset" : "Found companies"}</h2>
@@ -102,16 +111,34 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
               : "Confidence and evidence show how reliable each buying signal is. High-confidence findings rank highest."}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="w-fit rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-1 text-xs text-emerald-200">
-            {verifiedCount} {fi ? "varmennettua" : "verified"}
-          </span>
-          <span className="w-fit rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-300">
-            {highConfidenceCount} {fi ? "korkean varmuuden havaintoa" : "high-confidence findings"}
-          </span>
-          <span className="w-fit rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-300">
-            {results.length} {fi ? "löytyi" : "found"}
-          </span>
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex flex-wrap gap-2">
+            <span className="w-fit rounded-full border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-1 text-xs text-emerald-200">
+              {verifiedCount} {fi ? "varmennettua" : "verified"}
+            </span>
+            <span className="w-fit rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-300">
+              {highConfidenceCount} {fi ? "korkean varmuuden havaintoa" : "high-confidence findings"}
+            </span>
+            <span className="w-fit rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-300">
+              {results.length} {fi ? "löytyi" : "found"}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setAllSelected(true)}
+              className="rounded-lg border border-violet-400/25 bg-violet-400/[0.08] px-3 py-1.5 text-xs font-medium text-violet-200 transition hover:bg-violet-400/[0.14]"
+            >
+              {fi ? "Valitse kaikki" : "Select all"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAllSelected(false)}
+              className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/[0.07]"
+            >
+              {fi ? "Poista valinnat" : "Clear selection"}
+            </button>
+          </div>
         </div>
       </div>
 
