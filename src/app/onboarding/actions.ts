@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { ensureWorkspaceSubscription } from "@/lib/billing/subscription";
 import { requireUser } from "@/lib/session";
 import {
   slugify,
@@ -108,6 +109,11 @@ export async function createWorkspaceAction(formData: FormData) {
 
     return created;
   });
+
+  // New email/password users only reach onboarding after email verification.
+  // Starting the subscription here prevents trial days from being consumed
+  // while the user is still waiting to verify their address.
+  await ensureWorkspaceSubscription(workspace.id);
 
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_WORKSPACE_COOKIE, workspace.id, {
