@@ -38,6 +38,13 @@ export async function startPaidCheckoutAction(formData: FormData) {
     redirect("/choose-plan?error=invalid-plan");
   }
 
+  // Paid checkout is deliberately locked until Stripe is configured with the
+  // same Early Access offer shown in the UI. This prevents accidental full-price
+  // charges while the launch discount is still being wired.
+  if (process.env.STRIPE_CHECKOUT_ENABLED !== "true") {
+    redirect("/choose-plan?error=stripe-not-configured");
+  }
+
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
     redirect("/choose-plan?error=stripe-not-configured");
