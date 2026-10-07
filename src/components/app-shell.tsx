@@ -8,8 +8,8 @@ import { LeadFlowCopilot } from "@/components/leadflow-copilot";
 
 type Locale = "fi" | "en";
 const copy = {
-  fi: { tagline:"Prospektointi & myynti", workspace:"Työtila", main:"Päänäkymä", overview:"Yleiskatsaus", prospecting:"Prospektointi", leads:"Liidit", newLeads:"Uudet liidit", allLeads:"Kaikki liidit", findLeads:"Etsi liidejä", settings:"Asetukset" },
-  en: { tagline:"Prospecting & sales", workspace:"Workspace", main:"Main", overview:"Overview", prospecting:"Prospecting", leads:"Leads", newLeads:"New leads", allLeads:"All leads", findLeads:"Find leads", settings:"Settings" },
+  fi: { tagline:"Prospektointi & myynti", workspace:"Työtila", main:"Päänäkymä", overview:"Yleiskatsaus", prospecting:"Prospektointi", leads:"Liidit", newLeads:"Uudet liidit", allLeads:"Kaikki liidit", findLeads:"Etsi liidejä", outreach:"Yhteydenotot", settings:"Asetukset" },
+  en: { tagline:"Prospecting & sales", workspace:"Workspace", main:"Main", overview:"Overview", prospecting:"Prospecting", leads:"Leads", newLeads:"New leads", allLeads:"All leads", findLeads:"Find leads", outreach:"Outreach", settings:"Settings" },
 } as const;
 
 function Badge({ count }: { count: number }) {
@@ -67,6 +67,7 @@ export function AppShell({ workspaceName, userName, newLeadCount, locale, childr
             <NavLink href="/leads" label={t.allLeads} icon="◎" />
             <NavLink href="/leads/discover" label={t.findLeads} icon="⌕" />
           </div>}
+          <NavLink href="/outreach" label={t.outreach} icon="✉" />
         </nav>
       </div>
       <div className="mt-6 border-t border-white/[0.08] pt-4 lg:mt-auto">
