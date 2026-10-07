@@ -9,16 +9,47 @@ function addDays(date: Date, days: number) {
   return result;
 }
 
+function trialWindow() {
+  const now = new Date();
+  const trial = BILLING_PLANS.TRIAL;
+  return {
+    now,
+    trial,
+    periodEnd: addDays(now, trial.trialDays ?? 14),
+  };
+}
+
 export async function ensureWorkspaceSubscription(workspaceId: string) {
   const existing = await prisma.subscription.findUnique({
     where: { workspaceId },
   });
 
-  if (existing) return existing;
+  if (existing) {
+    const isUninitializedLegacySubscription = existing.status === "inactive"
+      && !existing.stripeCustomerId
+      && !existing.stripeSubscriptionId
+      && !existing.currentPeriodStart
+      && !existing.currentPeriodEnd;
 
-  const now = new Date();
-  const trial = BILLING_PLANS.TRIAL;
-  const periodEnd = addDays(now, trial.trialDays ?? 14);
+    if (!isUninitializedLegacySubscription) return existing;
+
+    const { now, trial, periodEnd } = trialWindow();
+    return prisma.subscription.update({
+      where: { workspaceId },
+      data: {
+        plan: trial.id,
+        status: "trialing",
+        quotas: {
+          verifiedLeadLimit: trial.verifiedLeadLimit,
+          trialDays: trial.trialDays ?? 14,
+        },
+        currentPeriodStart: now,
+        currentPeriodEnd: periodEnd,
+      },
+    });
+  }
+
+  const { now, trial, periodEnd } = trialWindow();
 
   return prisma.subscription.create({
     data: {
