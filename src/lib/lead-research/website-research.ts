@@ -40,6 +40,18 @@ function match(html: string, pattern: RegExp) {
   return cleanText(html.match(pattern)?.[1]);
 }
 
+function visibleText(html: string) {
+  return decodeHtml(
+    html
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, " ")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+}
+
 export type WebsiteResearch = {
   finalUrl: string;
   httpsEnabled: boolean;
@@ -47,7 +59,10 @@ export type WebsiteResearch = {
   metaDescription: string | null;
   h1: string | null;
   emails: string[];
+  hasPhone: boolean;
   hasContactLink: boolean;
+  hasPrimaryCta: boolean;
+  visibleTextLength: number;
 };
 
 export async function researchPublicWebsite(startUrl: string): Promise<WebsiteResearch> {
@@ -106,15 +121,29 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
     let offset = 0;
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
     const html = new TextDecoder().decode(bytes);
+    const pageText = visibleText(html);
 
     const pageTitle = match(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
     const metaDescription = match(html, /<meta[^>]+name=["']description["'][^>]+content=["']([^"']*)["'][^>]*>/i)
       ?? match(html, /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["'][^>]*>/i);
     const h1 = match(html, /<h1[^>]*>([\s\S]*?)<\/h1>/i);
     const emails = Array.from(new Set((html.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []).map((email) => email.toLowerCase()))).slice(0, 10);
+    const hasPhone = /(?:\+358|0)\s?(?:\d[\s-]?){6,12}/.test(pageText);
     const hasContactLink = /<a\b[^>]+href=["'][^"']*(contact|yhteystiedot|ota-yhteytta|ota-yhteyttä)[^"']*["']/i.test(html);
+    const hasPrimaryCta = /(ota yhteyttä|pyydä tarjous|varaa aika|varaa nyt|tilaa|kysy lisää|request a quote|contact us|book now|book an appointment|get in touch)/i.test(pageText);
 
-    return { finalUrl: current, httpsEnabled: current.startsWith("https://"), pageTitle, metaDescription, h1, emails, hasContactLink };
+    return {
+      finalUrl: current,
+      httpsEnabled: current.startsWith("https://"),
+      pageTitle,
+      metaDescription,
+      h1,
+      emails,
+      hasPhone,
+      hasContactLink,
+      hasPrimaryCta,
+      visibleTextLength: pageText.length,
+    };
   }
 
   throw new Error("Website redirected too many times.");
