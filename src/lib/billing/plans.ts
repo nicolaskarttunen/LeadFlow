@@ -14,6 +14,17 @@ export type BillingPlan = {
   notIncludedEn: string[];
 };
 
+export const EARLY_ACCESS_OFFER = {
+  enabled: true,
+  discountPercent: 30,
+  discountedMonths: 3,
+} as const;
+
+export function earlyAccessMonthlyPrice(priceMonthlyEur: number) {
+  const multiplier = (100 - EARLY_ACCESS_OFFER.discountPercent) / 100;
+  return Math.round(priceMonthlyEur * multiplier * 100) / 100;
+}
+
 export const BILLING_PLANS: Record<BillingPlanId, BillingPlan> = {
   TRIAL: {
     id: "TRIAL",
