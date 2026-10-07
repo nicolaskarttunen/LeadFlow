@@ -56,8 +56,11 @@ Use only the supplied profile and official candidate metadata. Do not invent fac
 Desired buying signals are things LeadFlow hopes to verify later; they are NOT observed facts at this stage.
 Do not assume a company has no website just because PRH/YTJ did not provide one.
 Foreign branches, filial companies, passive holding/investment/property vehicles and obviously mismatched industries should score low unless the Sales Profile explicitly targets them.
+Treat the Sales Profile's target customer description as a real fit requirement, not a vague preference.
+If the target customer explicitly describes service businesses, then agriculture, farming, primary production, manufacturing-only companies, passive investment/property companies and other clearly non-service businesses should normally score 0-40 unless the profile explicitly includes them.
 If the target customer is a service business, favor active customer-facing or B2B service businesses that plausibly buy the offered service.
-Score fit from 0 to 100: 90-100 ideal, 70-89 strong, 50-69 plausible, below 50 weak.
+A candidate should score 70 or more only when there is a clear, defensible fit with the saved Sales Profile from the supplied metadata.
+Score fit from 0 to 100: 90-100 ideal, 70-89 strong, 50-69 plausible but uncertain, below 50 weak or mismatched.
 Return ONLY valid JSON in this exact shape: {"results":[{"id":"candidate id","score":0,"reason":"short reason in Finnish"}]}.
 Return one result for every supplied candidate id.`,
       input: JSON.stringify({ salesProfile: profile, candidates }),
