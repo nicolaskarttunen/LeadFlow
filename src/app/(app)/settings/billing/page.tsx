@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { startPaidCheckoutAction } from "@/app/choose-plan/actions";
 import { getCurrentLocale } from "@/lib/current-locale";
 import { requireWorkspace } from "@/lib/workspace";
 import { BILLING_PLANS, PAID_PLAN_IDS } from "@/lib/billing/plans";
@@ -15,6 +16,7 @@ export default async function BillingSettingsPage() {
   const fi = locale === "fi";
   const overview = await getBillingOverview(workspace.id);
   const percent = progressPercent(overview.used, overview.limit);
+  const stripeReady = Boolean(process.env.STRIPE_SECRET_KEY);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -170,13 +172,17 @@ export default async function BillingSettingsPage() {
                 </div>
               </details>
 
-              <button
-                type="button"
-                disabled
-                className={`mt-5 w-full rounded-xl px-4 py-3 text-sm font-semibold ${highlighted ? "bg-violet-500 text-white" : "border border-white/10 bg-white/[0.04] text-slate-200"} cursor-not-allowed opacity-60`}
-              >
-                {fi ? "Maksaminen tulossa" : "Checkout coming next"}
-              </button>
+              <form action={startPaidCheckoutAction} className="mt-5">
+                <input type="hidden" name="planId" value={plan.id} />
+                <button
+                  disabled={!stripeReady}
+                  className={`w-full rounded-xl px-4 py-3 text-sm font-semibold ${highlighted ? "bg-violet-500 text-white hover:bg-violet-400" : "border border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]"} disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  {stripeReady
+                    ? (fi ? `Valitse ${plan.name}` : `Choose ${plan.name}`)
+                    : (fi ? "Maksaminen kytketään seuraavaksi" : "Checkout setup next")}
+                </button>
+              </form>
             </div>
           );
         })}
