@@ -13,8 +13,8 @@ export default async function SignUpPage() {
   return (
     <main className="flex min-h-screen items-center justify-center px-5 py-12">
       <AuthCard
-        title="Create your account"
-        subtitle="Create your workspace and start building a focused B2B prospect pipeline."
+        title="Luo LeadFlow-tili"
+        subtitle="Aloita 14 päivän kokeilu. Vahvista sähköpostisi ennen yrityksesi käyttöönottoa."
       >
         <SignUpForm />
       </AuthCard>
