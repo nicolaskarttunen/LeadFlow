@@ -97,7 +97,7 @@ export async function verifyBuyingSignals(lead: DiscoveredLead): Promise<Discove
       signals.push(signal(
         "weak_contact",
         "Yhteydenotto ei näy selkeästi etusivulla",
-        "Etusivulta ei löytynyt yhteydenottolinkkiä, sähköpostiosoitetta tai tunnistettavaa puhelinnumeroa.",
+        "Etusivulta tai löydetyiltä yhteystietosivuilta ei löytynyt yhteydenottolinkkiä, sähköpostiosoitetta tai tunnistettavaa puhelinnumeroa.",
         "MEDIUM",
       ));
     }
@@ -109,6 +109,7 @@ export async function verifyBuyingSignals(lead: DiscoveredLead): Promise<Discove
       buyingSignalSummary: summary(signals),
       recommendedAngle: recommendedAngle(signals),
       publicEmails: research.emails,
+      publicPhones: research.phones,
     };
   } catch (error) {
     console.error("Buying signal website verification failed", {
