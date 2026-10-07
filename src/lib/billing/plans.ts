@@ -18,6 +18,8 @@ export const EARLY_ACCESS_OFFER = {
   enabled: true,
   discountPercent: 30,
   discountedMonths: 3,
+  maxPaidCustomers: 30,
+  endsOn: "2026-12-31",
 } as const;
 
 export function earlyAccessMonthlyPrice(priceMonthlyEur: number) {
