@@ -98,7 +98,7 @@ export async function discoverLeadsAction(
   const profileForRanking = {
     offering: companyProfile?.offering,
     targetCustomer: salesProfile?.targetCustomer,
-    industries: salesProfile?.industries ?? (industry ? [industry] : []),
+    industries: industry ? [industry] : salesProfile?.industries ?? [],
     keywords: keywords.length ? keywords : salesProfile?.keywords ?? [],
     excludedIndustries: salesProfile?.excludedIndustries ?? [],
     excludedCompanies: salesProfile?.excludedCompanies ?? [],
