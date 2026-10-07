@@ -110,9 +110,8 @@ export async function createWorkspaceAction(formData: FormData) {
     return created;
   });
 
-  // New email/password users only reach onboarding after email verification.
-  // Starting the subscription here prevents trial days from being consumed
-  // while the user is still waiting to verify their address.
+  // Create the subscription shell without starting the trial clock.
+  // The user explicitly chooses Trial, Starter, Growth or Pro next.
   await ensureWorkspaceSubscription(workspace.id);
 
   const cookieStore = await cookies();
@@ -123,5 +122,5 @@ export async function createWorkspaceAction(formData: FormData) {
     path: "/",
   });
 
-  redirect("/dashboard");
+  redirect("/choose-plan");
 }
