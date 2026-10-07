@@ -49,14 +49,12 @@ function companyForm(company: PrhCompany) {
   return description(current?.descriptions) ?? current?.type;
 }
 
-function broadRegistrationStart(keywords: string[] | undefined) {
-  const wantsNewCompany = (keywords ?? []).some((keyword) => {
-    const value = keyword.toLowerCase();
-    return value.includes("uusi yritys") || value.includes("new company");
-  });
-
+function broadRegistrationStart() {
+  // Keep broad searches reasonably current, but do not turn the optional
+  // "new company" buying signal into a hard discovery filter. Company age is
+  // handled later as a ranking signal instead.
   const date = new Date();
-  date.setMonth(date.getMonth() - (wantsNewCompany ? 36 : 84));
+  date.setMonth(date.getMonth() - 120);
   return date.toISOString().slice(0, 10);
 }
 
@@ -64,7 +62,7 @@ export class PrhLeadDiscoveryProvider implements LeadDiscoveryProvider {
   name = "prh-ytj";
 
   async discover(query: LeadDiscoveryQuery): Promise<DiscoveredLead[]> {
-    const requested = Math.max(1, Math.min(query.limit, 300));
+    const requested = Math.max(1, Math.min(query.limit, 600));
     const pages = Math.max(1, Math.ceil(requested / 100));
     const baseParams = new URLSearchParams();
 
@@ -73,7 +71,7 @@ export class PrhLeadDiscoveryProvider implements LeadDiscoveryProvider {
 
     const broadSearch = !query.industry && !query.location;
     if (broadSearch) {
-      baseParams.set("registrationDateStart", broadRegistrationStart(query.keywords));
+      baseParams.set("registrationDateStart", broadRegistrationStart());
     }
 
     const companies: PrhCompany[] = [];
