@@ -30,13 +30,28 @@ function candidateId(lead: DiscoveredLead) {
   return lead.providerPlaceId ?? lead.companyName;
 }
 
+function failedEvaluation(lead: DiscoveredLead, reason: string): DiscoveredLead {
+  return {
+    ...lead,
+    profileFitScore: 0,
+    profileFitReason: reason,
+  };
+}
+
 export async function rerankCandidatesWithAI(
   leads: DiscoveredLead[],
   profile: SalesProfileForAI,
 ): Promise<DiscoveredLead[]> {
-  if (!process.env.OPENAI_API_KEY || leads.length < 2) return leads;
+  if (leads.length < 2) return leads;
 
-  const pool = leads.slice(0, 50);
+  // Keep the AI batch small enough that every candidate can receive an explicit
+  // score without risking a truncated JSON response.
+  const pool = leads.slice(0, 30);
+
+  if (!process.env.OPENAI_API_KEY) {
+    return pool.map((lead) => failedEvaluation(lead, "AI-esikarsinta ei ole käytettävissä."));
+  }
+
   const candidates = pool.map((lead) => ({
     id: candidateId(lead),
     name: lead.companyName,
@@ -62,9 +77,9 @@ If the target customer is a service business, favor active customer-facing or B2
 A candidate should score 70 or more only when there is a clear, defensible fit with the saved Sales Profile from the supplied metadata.
 Score fit from 0 to 100: 90-100 ideal, 70-89 strong, 50-69 plausible but uncertain, below 50 weak or mismatched.
 Return ONLY valid JSON in this exact shape: {"results":[{"id":"candidate id","score":0,"reason":"short reason in Finnish"}]}.
-Return one result for every supplied candidate id.`,
+You MUST return exactly one result for every supplied candidate id. Do not omit any candidate.`,
       input: JSON.stringify({ salesProfile: profile, candidates }),
-      max_output_tokens: 3000,
+      max_output_tokens: 3600,
       store: false,
     });
 
@@ -81,20 +96,29 @@ Return one result for every supplied candidate id.`,
         ]),
     );
 
-    if (!byId.size) return leads;
-
     const rankedPool = pool
       .map((lead) => {
         const ai = byId.get(candidateId(lead));
-        return ai
-          ? { ...lead, profileFitScore: ai.score, profileFitReason: ai.reason || undefined }
-          : lead;
+        if (!ai) {
+          return failedEvaluation(
+            lead,
+            "AI ei palauttanut tälle kandidaatille varmennettua profiilisopivuusarviota.",
+          );
+        }
+
+        return {
+          ...lead,
+          profileFitScore: ai.score,
+          profileFitReason: ai.reason || undefined,
+        };
       })
       .sort((a, b) => (b.profileFitScore ?? 0) - (a.profileFitScore ?? 0));
 
-    return [...rankedPool, ...leads.slice(pool.length)];
+    // Only return candidates that were part of this verified AI batch. Candidates
+    // outside the batch must never bypass the profile-fit gate with an undefined score.
+    return rankedPool;
   } catch (error) {
     console.error("AI candidate reranking failed", error);
-    return leads;
+    return pool.map((lead) => failedEvaluation(lead, "AI-esikarsinta epäonnistui."));
   }
 }
