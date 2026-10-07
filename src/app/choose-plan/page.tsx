@@ -1,9 +1,21 @@
 import { redirect } from "next/navigation";
 import { activateTrialAction, startPaidCheckoutAction } from "@/app/choose-plan/actions";
-import { BILLING_PLANS, PAID_PLAN_IDS } from "@/lib/billing/plans";
+import {
+  BILLING_PLANS,
+  EARLY_ACCESS_OFFER,
+  PAID_PLAN_IDS,
+  earlyAccessMonthlyPrice,
+} from "@/lib/billing/plans";
 import { getBillingOverview } from "@/lib/billing/subscription";
 import { getCurrentLocale } from "@/lib/current-locale";
 import { requireWorkspace } from "@/lib/workspace";
+
+function formatPrice(value: number, fi: boolean) {
+  return new Intl.NumberFormat(fi ? "fi-FI" : "en-US", {
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
 
 export default async function ChoosePlanPage({
   searchParams,
@@ -20,7 +32,10 @@ export default async function ChoosePlanPage({
     redirect("/dashboard");
   }
 
-  const stripeReady = Boolean(process.env.STRIPE_SECRET_KEY);
+  // Checkout stays intentionally disabled until the Early Access discount is
+  // implemented in Stripe as well. This prevents the UI and charged price
+  // from ever disagreeing.
+  const stripeReady = false;
   const trial = BILLING_PLANS.TRIAL;
 
   return (
@@ -37,6 +52,31 @@ export default async function ChoosePlanPage({
               : "Start a 14-day trial without a payment card or choose a paid plan right away. The trial never converts automatically into a paid subscription."}
           </p>
         </div>
+
+        {EARLY_ACCESS_OFFER.enabled ? (
+          <section className="mx-auto mt-7 max-w-4xl rounded-3xl border border-violet-400/25 bg-violet-400/[0.06] px-5 py-5 sm:px-7">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-violet-400/25 bg-violet-400/[0.1] px-3 py-1 text-xs font-semibold text-violet-200">
+                    Early Access
+                  </span>
+                  <span className="text-sm font-semibold text-white">
+                    -{EARLY_ACCESS_OFFER.discountPercent} % · {EARLY_ACCESS_OFFER.discountedMonths} {fi ? "ensimmäistä kuukautta" : "first months"}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-300">
+                  {fi
+                    ? `Early Access -etu on saatavilla ensimmäisille ${EARLY_ACCESS_OFFER.maxPaidCustomers} maksavalle asiakkaalle tai 31.12.2026 asti, kumpi täyttyy ensin.`
+                    : `The Early Access offer is available to the first ${EARLY_ACCESS_OFFER.maxPaidCustomers} paying customers or until December 31, 2026, whichever comes first.`}
+                </p>
+              </div>
+              <div className="shrink-0 rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-slate-300">
+                {fi ? "Sen jälkeen normaali kuukausihinta" : "Standard monthly price after that"}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {query.error ? (
           <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-100">
@@ -64,7 +104,7 @@ export default async function ChoosePlanPage({
             </div>
             <div className="mt-4 text-3xl font-semibold text-white">0 €</div>
             <p className="mt-3 min-h-12 text-sm leading-6 text-slate-400">
-              {fi ? "Kokeile LeadFlow'n ydinkokemus ennen maksullista tilausta." : trial.descriptionEn}
+              {fi ? trial.descriptionFi : trial.descriptionEn}
             </p>
             <div className="mt-5 rounded-2xl border border-white/[0.08] bg-black/10 px-4 py-3 text-sm font-medium text-slate-200">
               {trial.verifiedLeadLimit} {fi ? "varmennettua liidiä" : "verified leads"}
@@ -105,23 +145,42 @@ export default async function ChoosePlanPage({
           {PAID_PLAN_IDS.map((planId) => {
             const plan = BILLING_PLANS[planId];
             const highlighted = planId === "GROWTH";
+            const earlyPrice = earlyAccessMonthlyPrice(plan.priceMonthlyEur);
+
             return (
               <section
                 key={plan.id}
-                className={`rounded-3xl border p-6 ${highlighted ? "border-violet-400/35 bg-violet-400/[0.055]" : "border-white/10 bg-white/[0.025]"}`}
+                className={`rounded-3xl border p-6 ${highlighted ? "border-violet-400/40 bg-violet-400/[0.065] shadow-xl shadow-violet-950/10" : "border-white/10 bg-white/[0.025]"}`}
               >
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-lg font-semibold text-white">{plan.name}</h2>
-                  {highlighted ? (
-                    <span className="rounded-full border border-violet-400/20 bg-violet-400/[0.1] px-2.5 py-1 text-[11px] font-medium text-violet-200">
-                      {fi ? "Suosituin" : "Most popular"}
+                  <div className="flex flex-wrap gap-1.5">
+                    {highlighted ? (
+                      <span className="rounded-full border border-violet-400/20 bg-violet-400/[0.1] px-2.5 py-1 text-[11px] font-medium text-violet-200">
+                        {fi ? "Suosituin" : "Most popular"}
+                      </span>
+                    ) : null}
+                    <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.07] px-2.5 py-1 text-[11px] font-medium text-emerald-200">
+                      Early Access -{EARLY_ACCESS_OFFER.discountPercent} %
                     </span>
-                  ) : null}
+                  </div>
                 </div>
-                <div className="mt-4 flex items-end gap-1">
-                  <span className="text-3xl font-semibold text-white">{plan.priceMonthlyEur} €</span>
-                  <span className="pb-1 text-sm text-slate-500">/{fi ? "kk" : "mo"}</span>
+
+                <div className="mt-4">
+                  <div className="flex items-end gap-2">
+                    <span className="text-3xl font-semibold text-white">{formatPrice(earlyPrice, fi)} €</span>
+                    <span className="pb-1 text-sm text-slate-500">/{fi ? "kk" : "mo"}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    <span className="line-through">{formatPrice(plan.priceMonthlyEur, fi)} €/{fi ? "kk" : "mo"}</span>
+                    <span className="ml-2 text-slate-400">
+                      {fi
+                        ? `ensimmäiset ${EARLY_ACCESS_OFFER.discountedMonths} kk, sitten ${formatPrice(plan.priceMonthlyEur, fi)} €/kk`
+                        : `first ${EARLY_ACCESS_OFFER.discountedMonths} months, then ${formatPrice(plan.priceMonthlyEur, fi)} €/mo`}
+                    </span>
+                  </div>
                 </div>
+
                 <p className="mt-3 min-h-12 text-sm leading-6 text-slate-400">
                   {fi ? plan.descriptionFi : plan.descriptionEn}
                 </p>
@@ -182,11 +241,11 @@ export default async function ChoosePlanPage({
           })}
         </div>
 
-        <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-5 text-slate-500">
+        <div className="mx-auto mt-7 max-w-4xl rounded-2xl border border-white/[0.08] bg-white/[0.025] px-5 py-4 text-center text-xs leading-5 text-slate-500">
           {fi
-            ? "Trial: 14 päivää tai 20 varmennettua liidiä, kumpi täyttyy ensin. Maksulliset paketit uusiutuvat kuukausittain, kun Stripe-maksaminen on kytketty."
-            : "Trial: 14 days or 20 verified leads, whichever comes first. Paid plans renew monthly once Stripe checkout is connected."}
-        </p>
+            ? `Early Access: -${EARLY_ACCESS_OFFER.discountPercent} % ensimmäiset ${EARLY_ACCESS_OFFER.discountedMonths} kuukautta ensimmäisille ${EARLY_ACCESS_OFFER.maxPaidCustomers} maksavalle asiakkaalle tai 31.12.2026 asti. Trial: 14 päivää tai 20 varmennettua liidiä, kumpi täyttyy ensin.`
+            : `Early Access: ${EARLY_ACCESS_OFFER.discountPercent}% off the first ${EARLY_ACCESS_OFFER.discountedMonths} months for the first ${EARLY_ACCESS_OFFER.maxPaidCustomers} paying customers or until December 31, 2026. Trial: 14 days or 20 verified leads, whichever comes first.`}
+        </div>
       </div>
     </main>
   );
