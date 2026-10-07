@@ -18,6 +18,11 @@ type AIResult = {
 
 type AIResponse = { results?: AIResult[] };
 
+const AI_BATCH_SIZE = 30;
+const TARGET_STRONG_CANDIDATES = 10;
+const BROAD_SEARCH_MINIMUM_FIT = 70;
+const TARGETED_SEARCH_MINIMUM_FIT = 35;
+
 function cleanJson(value: string) {
   return value
     .trim()
@@ -38,21 +43,18 @@ function failedEvaluation(lead: DiscoveredLead, reason: string): DiscoveredLead 
   };
 }
 
-export async function rerankCandidatesWithAI(
-  leads: DiscoveredLead[],
+function minimumFit(profile: SalesProfileForAI) {
+  return profile.industries.length === 0
+    ? BROAD_SEARCH_MINIMUM_FIT
+    : TARGETED_SEARCH_MINIMUM_FIT;
+}
+
+async function evaluateBatch(
+  client: OpenAI,
+  batch: DiscoveredLead[],
   profile: SalesProfileForAI,
 ): Promise<DiscoveredLead[]> {
-  if (leads.length < 2) return leads;
-
-  // Keep the AI batch small enough that every candidate can receive an explicit
-  // score without risking a truncated JSON response.
-  const pool = leads.slice(0, 30);
-
-  if (!process.env.OPENAI_API_KEY) {
-    return pool.map((lead) => failedEvaluation(lead, "AI-esikarsinta ei ole käytettävissä."));
-  }
-
-  const candidates = pool.map((lead) => ({
+  const candidates = batch.map((lead) => ({
     id: candidateId(lead),
     name: lead.companyName,
     industry: lead.industry ?? null,
@@ -61,7 +63,6 @@ export async function rerankCandidatesWithAI(
     registrationDate: lead.registrationDate ?? null,
   }));
 
-  const client = new OpenAI();
   try {
     const response = await client.responses.create({
       model: process.env.OPENAI_DISCOVERY_MODEL || process.env.OPENAI_MODEL || "gpt-5.6-sol",
@@ -96,29 +97,60 @@ You MUST return exactly one result for every supplied candidate id. Do not omit 
         ]),
     );
 
-    const rankedPool = pool
-      .map((lead) => {
-        const ai = byId.get(candidateId(lead));
-        if (!ai) {
-          return failedEvaluation(
-            lead,
-            "AI ei palauttanut tälle kandidaatille varmennettua profiilisopivuusarviota.",
-          );
-        }
+    return batch.map((lead) => {
+      const ai = byId.get(candidateId(lead));
+      if (!ai) {
+        return failedEvaluation(
+          lead,
+          "AI ei palauttanut tälle kandidaatille varmennettua profiilisopivuusarviota.",
+        );
+      }
 
-        return {
-          ...lead,
-          profileFitScore: ai.score,
-          profileFitReason: ai.reason || undefined,
-        };
-      })
-      .sort((a, b) => (b.profileFitScore ?? 0) - (a.profileFitScore ?? 0));
-
-    // Only return candidates that were part of this verified AI batch. Candidates
-    // outside the batch must never bypass the profile-fit gate with an undefined score.
-    return rankedPool;
+      return {
+        ...lead,
+        profileFitScore: ai.score,
+        profileFitReason: ai.reason || undefined,
+      };
+    });
   } catch (error) {
-    console.error("AI candidate reranking failed", error);
-    return pool.map((lead) => failedEvaluation(lead, "AI-esikarsinta epäonnistui."));
+    console.error("AI candidate batch evaluation failed", error);
+    return batch.map((lead) => failedEvaluation(lead, "AI-esikarsinta epäonnistui tälle erälle."));
   }
+}
+
+export async function rerankCandidatesWithAI(
+  leads: DiscoveredLead[],
+  profile: SalesProfileForAI,
+): Promise<DiscoveredLead[]> {
+  if (!leads.length) return [];
+
+  if (!process.env.OPENAI_API_KEY) {
+    return leads
+      .slice(0, AI_BATCH_SIZE)
+      .map((lead) => failedEvaluation(lead, "AI-esikarsinta ei ole käytettävissä."));
+  }
+
+  const client = new OpenAI();
+  const evaluated: DiscoveredLead[] = [];
+  const threshold = minimumFit(profile);
+  let strongCount = 0;
+
+  for (let offset = 0; offset < leads.length; offset += AI_BATCH_SIZE) {
+    const batch = leads.slice(offset, offset + AI_BATCH_SIZE);
+    if (!batch.length) break;
+
+    const batchEvaluated = await evaluateBatch(client, batch, profile);
+    evaluated.push(...batchEvaluated);
+    strongCount += batchEvaluated.filter(
+      (lead) => (lead.profileFitScore ?? 0) >= threshold,
+    ).length;
+
+    if (strongCount >= TARGET_STRONG_CANDIDATES) break;
+  }
+
+  return evaluated.sort((a, b) => {
+    const fitDiff = (b.profileFitScore ?? 0) - (a.profileFitScore ?? 0);
+    if (fitDiff !== 0) return fitDiff;
+    return (b.discoveryScore ?? 0) - (a.discoveryScore ?? 0);
+  });
 }
