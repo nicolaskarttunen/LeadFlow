@@ -108,6 +108,7 @@ export async function verifyBuyingSignals(lead: DiscoveredLead): Promise<Discove
       buyingSignals: signals,
       buyingSignalSummary: summary(signals),
       recommendedAngle: recommendedAngle(signals),
+      publicEmails: research.emails,
     };
   } catch (error) {
     console.error("Buying signal website verification failed", {
