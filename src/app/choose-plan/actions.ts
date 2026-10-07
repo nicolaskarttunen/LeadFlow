@@ -48,7 +48,7 @@ export async function startPaidCheckoutAction(formData: FormData) {
 
   const body = new URLSearchParams();
   body.set("mode", "subscription");
-  body.set("success_url", `${baseUrl}/dashboard?checkout=success`);
+  body.set("success_url", `${baseUrl}/choose-plan?checkout=success`);
   body.set("cancel_url", `${baseUrl}/choose-plan?checkout=cancelled`);
   body.set("customer_email", user.email);
   body.set("client_reference_id", workspace.id);
