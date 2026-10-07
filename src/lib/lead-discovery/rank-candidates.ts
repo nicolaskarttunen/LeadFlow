@@ -139,10 +139,22 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
         score += serviceTarget && serviceIndustry ? 30 : 18;
         reasons.push("Google-yritystiedossa ei ollut omaa verkkosivua");
       } else if (wantsWebsiteSignals && lead.websiteStatus === "FOUND" && lead.website) {
-        score += 15;
-        reasons.push("oma verkkosivu löytyi ja voidaan analysoida ostosignaalien varalta");
+        score += 10;
       } else if (lead.websiteStatus === "UNKNOWN") {
         score -= 5;
+      }
+
+      const verifiedSignals = lead.buyingSignals ?? [];
+      if (verifiedSignals.length) {
+        const signalBonus = Math.min(
+          20,
+          verifiedSignals.reduce(
+            (total, item) => total + (item.confidence === "HIGH" ? 8 : 5),
+            0,
+          ),
+        );
+        score += signalBonus;
+        reasons.push(`varmennettuja ostosignaaleja: ${verifiedSignals.slice(0, 2).map((item) => item.label).join(", ")}`);
       }
 
       const ageMonths = monthsSince(lead.registrationDate);
@@ -163,9 +175,11 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
         ...lead,
         discoveryScore: Math.max(0, Math.min(100, score)),
         discoveryReasons: reasons,
-        whyRelevant: reasons.length
-          ? `Esikarsinnassa hyvä osuma: ${reasons.join(", ")}.`
-          : lead.whyRelevant,
+        whyRelevant: lead.buyingSignalSummary
+          ? `Miksi kontaktoida: ${lead.buyingSignalSummary}.`
+          : reasons.length
+            ? `Esikarsinnassa hyvä osuma: ${reasons.join(", ")}.`
+            : lead.whyRelevant,
       };
     })
     .filter((lead) => lead !== null)
