@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { getGoogleSender, googleAccessToken, sendGmailMessage } from "@/lib/email/gmail-send";
 import { requireWorkspace } from "@/lib/workspace";
 
 function normalizedEmail(value: string) {
@@ -175,6 +176,91 @@ export async function markEmailDraftSentAction(draftId: string) {
     });
   });
 
+  revalidatePath("/outreach");
+  revalidatePath("/leads");
+  revalidatePath(`/leads/${draft.leadId}`);
+  revalidatePath("/dashboard");
+}
+
+/**
+ * A reserved message is intentionally NOT retried automatically after a Gmail API
+ * error: a timeout can mean Gmail accepted the message. This avoids duplicates.
+ */
+export async function sendApprovedGmailDraftAction(draftId: string) {
+  const { user, workspace } = await requireWorkspace();
+  if (workspace.sendingPaused) throw new Error("Työtilan lähetykset on keskeytetty.");
+
+  const draft = await prisma.emailDraft.findFirst({
+    where: { id: draftId, workspaceId: workspace.id, status: "APPROVED" },
+    include: { lead: { include: {
+      contacts: { where: { email: { not: null } }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
+      replies: { take: 1 },
+    } } },
+  });
+  if (!draft) throw new Error("Hyväksyttyä luonnosta ei löytynyt.");
+  if (draft.lead.replies.length || ["REPLIED", "POSITIVE", "MEETING"].includes(draft.lead.status)) {
+    throw new Error("Liidille on jo tullut vastaus tai yhteydenotto on edennyt.");
+  }
+  const contact = draft.lead.contacts.find((item) => item.email);
+  const to = contact?.email?.trim();
+  if (!contact || !to || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(to)) throw new Error("Kelvollinen vastaanottaja puuttuu.");
+  if (!draft.subject.trim() || !draft.body.trim()) throw new Error("Viesti on tyhjä.");
+  const blocked = await prisma.suppressionEntry.findUnique({
+    where: { workspaceId_emailNormalized: { workspaceId: workspace.id, emailNormalized: normalizedEmail(to) } },
+  });
+  if (blocked) throw new Error("Vastaanottaja on estolistalla.");
+
+  const { connection, email: from } = await getGoogleSender(workspace.id);
+  const token = await googleAccessToken(connection);
+  const idempotencyKey = `gmail-outbound:${draft.id}`;
+  // Unique DB constraint prevents two clicks or concurrent requests from sending twice.
+  const reserved = await prisma.emailMessage.create({
+    data: {
+      workspaceId: workspace.id, leadId: draft.leadId, contactId: contact.id,
+      campaignId: draft.campaignId, draftId: draft.id, direction: "OUTBOUND",
+      status: "QUEUED", idempotencyKey, fromEmail: from, toEmail: to,
+      subject: draft.subject, body: draft.body,
+    },
+  }).catch((error: unknown) => {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+      throw new Error("Tämän luonnoksen lähetys on jo aloitettu. Tarkista lähetyshistoria ennen uutta yritystä.");
+    }
+    throw error;
+  });
+
+  let providerMessageId: string;
+  try {
+    providerMessageId = await sendGmailMessage(token, from, to, draft.subject, draft.body);
+  } catch (error) {
+    await prisma.auditLog.create({
+      data: {
+        workspaceId: workspace.id, actorUserId: user.id,
+        action: "email_message.gmail_send_uncertain",
+        entityType: "email_message", entityId: reserved.id,
+        metadata: { draftId: draft.id, reason: error instanceof Error ? error.message.slice(0, 250) : "unknown" },
+      },
+    });
+    throw new Error("Gmail-lähetyksen vahvistus epäonnistui. Tarkista Gmailin Lähetetyt-kansio ennen uutta yritystä.");
+  }
+
+  const sentAt = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.emailMessage.update({
+      where: { id: reserved.id },
+      data: { status: "SENT", providerMessageId, sentAt },
+    });
+    await tx.emailDraft.update({ where: { id: draft.id }, data: { status: "SENT" } });
+    await tx.lead.update({ where: { id: draft.leadId }, data: { status: "CONTACTED" } });
+    await tx.emailEvent.create({
+      data: { workspaceId: workspace.id, messageId: reserved.id, type: "SENT", occurredAt: sentAt,
+        payload: { source: "gmail_api", providerMessageId } },
+    });
+    await tx.auditLog.create({
+      data: { workspaceId: workspace.id, actorUserId: user.id, action: "email_message.gmail_sent",
+        entityType: "email_message", entityId: reserved.id,
+        metadata: { leadId: draft.leadId, draftId: draft.id, toEmail: to } },
+    });
+  });
   revalidatePath("/outreach");
   revalidatePath("/leads");
   revalidatePath(`/leads/${draft.leadId}`);
