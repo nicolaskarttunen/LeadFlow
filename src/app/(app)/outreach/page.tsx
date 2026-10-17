@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SendGmailButton } from "./send-gmail-button";
 import prisma from "@/lib/prisma";
 import { getCurrentLocale } from "@/lib/current-locale";
 import { requireWorkspace } from "@/lib/workspace";
@@ -37,7 +38,7 @@ export default async function OutreachPage() {
   const locale = await getCurrentLocale();
   const fi = locale === "fi";
 
-  const [drafts, grouped, suppressions] = await Promise.all([
+  const [drafts, grouped, suppressions, gmail] = await Promise.all([
     prisma.emailDraft.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { updatedAt: "desc" },
@@ -82,8 +83,14 @@ export default async function OutreachPage() {
       where: { workspaceId: workspace.id },
       select: { emailNormalized: true },
     }),
+    prisma.providerConnection.findUnique({
+      where: { workspaceId_type_providerName: { workspaceId: workspace.id, type: "EMAIL", providerName: "GOOGLE_GMAIL" } },
+      select: { enabled: true, secretReference: true, publicConfig: true },
+    }),
   ]);
 
+  const gmailConfig = gmail?.publicConfig as { email?: string } | null;
+  const gmailSender = gmail?.enabled && gmail.secretReference ? gmailConfig?.email : undefined;
   const counts = new Map(grouped.map((row) => [row.status, row._count._all]));
   const suppressed = new Set(suppressions.map((row) => row.emailNormalized));
   const sortedDrafts = [...drafts].sort((a, b) => {
@@ -172,7 +179,7 @@ export default async function OutreachPage() {
       <section className="mt-6 rounded-3xl border border-violet-400/15 bg-violet-400/[0.035] px-5 py-4 text-sm leading-6 text-slate-300">
         <span className="font-semibold text-violet-200">{fi ? "Turvallinen lähetys:" : "Safe sending:"}</span>{" "}
         {fi
-          ? "LeadFlow ei lähetä vielä viestejä automaattisesti. Hyväksytty viesti voidaan nyt merkitä lähetetyksi seurannan testaamiseksi. Kun Gmail/Microsoft 365 yhdistetään, sama näkymä lähettää viestin oikeasti asiakkaan omasta sähköpostista."
+          ? "Gmailin kautta voidaan lähettää hyväksytty viesti oikeasti, mutta vasta erillisen vahvistuksen jälkeen. Tarkista vastaanottaja ja viestin sisältö huolellisesti."
           : "LeadFlow does not send automatically yet. Approved messages can currently be marked as sent for tracking. Once Gmail/Microsoft 365 is connected, the same workflow will send from the customer's own mailbox."}
       </section>
 
@@ -263,7 +270,11 @@ export default async function OutreachPage() {
                       </form>
                     ) : null}
 
-                    {canMarkSent ? (
+                    {canMarkSent && gmailSender ? (
+                      <SendGmailButton draftId={draft.id} recipient={email!} sender={gmailSender} fi={fi} />
+                    ) : null}
+
+                    {canMarkSent && !gmailSender ? (
                       <form action={markEmailDraftSentAction.bind(null, draft.id)}>
                         <button className="w-full rounded-xl border border-emerald-400/20 bg-emerald-400/[0.07] px-4 py-2.5 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/[0.12]">
                           {fi ? "Merkitse lähetetyksi" : "Mark as sent"}
