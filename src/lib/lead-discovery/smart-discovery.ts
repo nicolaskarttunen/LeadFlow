@@ -22,6 +22,19 @@ const SERVICE_SEARCH_TERMS = [
   "kampaamo", "ohjelmisto", "huolto", "rakennus",
 ];
 
+const COMMERCE_SEARCH_TERMS = [
+  "vähittäiskauppa", "tukkukauppa", "erikoiskauppa", "elintarvikkeiden kauppa",
+];
+
+function expansionForIndustry(value: string) {
+  const normalized = value.toLocaleLowerCase("fi-FI");
+  if (normalized.includes("kauppa") || normalized.includes("retail") || normalized.includes("commerce")) {
+    return COMMERCE_SEARCH_TERMS;
+  }
+  if (isBroadIndustry(value)) return SERVICE_SEARCH_TERMS;
+  return [];
+}
+
 function isBroadIndustry(value: string) {
   const normalized = value.toLocaleLowerCase("fi-FI");
   return ["palveluyrity", "palveluala", "yritykset", "verkkokauppa", "kauppa &", "kaikki toimialat", "service business"].some(
@@ -73,9 +86,9 @@ export async function discoverSmartCandidates(
       ? []
       : [{ industry: wantedIndustry, reason: "Valittu kohdeala" }]),
     ...generated.filter((lane) => !isBroadIndustry(lane.industry)),
-    ...(profile.industries.some((industry) => isBroadIndustry(industry)) || isBroadIndustry(wantedIndustry)
-      ? SERVICE_SEARCH_TERMS.map((industry) => ({ industry, reason: "Palveluyritysten tarkennettu haku" }))
-      : []),
+    ...[wantedIndustry, ...profile.industries]
+      .flatMap(expansionForIndustry)
+      .map((industry) => ({ industry, reason: "Laajan toimialan tarkennettu haku" })),
   ].filter((lane, index, items) =>
     items.findIndex((candidate) => candidate.industry.toLocaleLowerCase("fi-FI") === lane.industry.toLocaleLowerCase("fi-FI")) === index,
   ).slice(0, MAX_LANES);
