@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { addDiscoveredLeadsWithContactsAction } from "@/app/(app)/leads/discover/add-with-contacts-action";
 import type { DiscoveredLead } from "@/lib/lead-discovery";
+import type { DiscoveryDiagnostics } from "@/app/(app)/leads/discover/actions";
 
 const initial = { message: null, error: null };
 
@@ -45,6 +46,7 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
   const fi = locale === "fi";
   const formRef = useRef<HTMLFormElement>(null);
   const [results, setResults] = useState<DiscoveredLead[]>([]);
+  const [diagnostics, setDiagnostics] = useState<DiscoveryDiagnostics | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [state, addSelected, adding] = useActionState(addDiscoveredLeadsWithContactsAction, initial);
 
@@ -52,6 +54,8 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
     try {
       const raw = sessionStorage.getItem("leadflow.discovery.results");
       setResults(raw ? JSON.parse(raw) : []);
+      const stats = sessionStorage.getItem("leadflow.discovery.diagnostics");
+      setDiagnostics(stats ? JSON.parse(stats) : null);
     } catch {
       setResults([]);
     } finally {
@@ -105,6 +109,18 @@ export function DiscoveryResults({ locale }: { locale: "fi" | "en" }) {
 
   return (
     <form ref={formRef} action={addSelected} className="surface overflow-hidden rounded-3xl">
+      {diagnostics ? (
+        <div className="border-b border-white/[0.07] px-6 py-4 text-xs text-slate-400">
+          <span className="font-semibold text-slate-200">{fi ? "Haun vaiheet:" : "Search stages:"}</span>{" "}
+          {fi ? "Lähteestä" : "Provider"} {diagnostics.found} ·{" "}
+          {fi ? "Uusia" : "New"} {diagnostics.newCandidates} ·{" "}
+          {fi ? "Esikarsinnasta" : "Shortlisted"} {diagnostics.initiallyEligible} ·{" "}
+          {fi ? "AI-arvion jälkeen" : "After AI"} {diagnostics.afterAi} ·{" "}
+          {fi ? "Tutkittu" : "Researched"} {diagnostics.researched} ·{" "}
+          {fi ? "Varmennettu" : "Verified"} {diagnostics.verified} ·{" "}
+          {fi ? "Näytetään" : "Shown"} {diagnostics.displayed}
+        </div>
+      ) : null}
       <div className="flex flex-col gap-3 border-b border-white/[0.07] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-semibold text-slate-100">{fi ? "Löydetyt yritykset" : "Found companies"}</h2>
