@@ -85,7 +85,6 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
   const nonprofitTarget = targetsNonprofits(profileText);
   const serviceTarget = targetsServiceBusinesses(profileText);
   const branchTarget = targetsBranches(profileText);
-  const minimumProfileFit = profile.industries.length === 0 ? 70 : 35;
 
   return leads
     .map((lead) => {
@@ -103,7 +102,9 @@ export function rankCandidates(leads: DiscoveredLead[], profile: SalesProfileFor
       if (!propertyTarget && passiveIndustry) return null;
 
       const serviceIndustry = includesAny(industry, SERVICE_INDUSTRY_HINTS);
-      if (lead.profileFitScore !== undefined && lead.profileFitScore < minimumProfileFit) return null;
+      // Keep uncertain but plausible prospects for manual review. Only clearly
+      // unsuitable AI-assessed candidates are removed at this stage.
+      if (lead.profileFitScore !== undefined && lead.profileFitScore < 25) return null;
 
       let score = 20;
       const reasons: string[] = [];
