@@ -2,7 +2,7 @@ import Link from "next/link";
 import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
 import { getCurrentLocale } from "@/lib/current-locale";
-import { keepLeadAction, rejectLeadAction, keepLeadsAboveScoreAction, rejectLeadsBelowScoreAction, rescorePendingLeadsAction } from "./actions";
+import { keepLeadAction, rejectLeadAction, keepLeadsAboveScoreAction, rejectLeadsBelowScoreAction } from "./actions";
 import { ScoreThresholdInput } from "@/components/score-threshold-input";
 
 export default async function NewlyFoundLeadsPage() {
@@ -44,21 +44,6 @@ export default async function NewlyFoundLeadsPage() {
         <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-violet-400/10 text-sm font-semibold text-violet-200">{leads.length}</span>
         <div><div className="text-sm font-medium text-slate-100">{fi ? "Uutta liidiä odottaa" : "New leads waiting"}</div><div className="text-xs text-slate-500">{fi ? "Järjestetty parhaista pisteistä alkaen." : "Sorted by highest score first."}</div></div>
       </div>
-
-      {leads.length > 0 ? (
-        <div className="mt-4 flex flex-col justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 sm:flex-row sm:items-center">
-          <p className="text-xs leading-5 text-slate-400">
-            {fi
-              ? "Liidien pisteytys huomioi nyt laajat palvelutoimialat sekä koko Suomen kattavan haun. Jo tallennetut pisteet eivät muutu ennen uutta arviointia."
-              : "Scoring now recognizes broad service industries and nationwide searches. Existing scores need recalculation."}
-          </p>
-          <form action={rescorePendingLeadsAction}>
-            <button type="submit" className="shrink-0 rounded-xl border border-violet-400/30 bg-violet-500/15 px-4 py-2.5 text-xs font-semibold text-violet-200 transition hover:bg-violet-500/25">
-              {fi ? "Päivitä liidien pisteet" : "Recalculate lead scores"}
-            </button>
-          </form>
-        </div>
-      ) : null}
 
       <details className="group mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02]">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.025]">
