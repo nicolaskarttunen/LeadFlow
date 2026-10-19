@@ -2,7 +2,6 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { requireWorkspace } from "@/lib/workspace";
-import { scoreLeadAction } from "@/app/(app)/leads/actions";
 
 async function setReviewStatus(leadId: string, reviewStatus: "KEPT" | "REJECTED") {
   const { user, workspace } = await requireWorkspace();
@@ -74,28 +73,3 @@ export async function rejectLeadsBelowScoreAction(formData: FormData) {
   await bulkReviewByScore(formData, "REJECT_BELOW");
 }
 
-/** Re-evaluate already researched pending leads using the current Sales Profile. */
-export async function rescorePendingLeadsAction() {
-  const { workspace } = await requireWorkspace();
-  const pending = await prisma.lead.findMany({
-    where: {
-      workspaceId: workspace.id,
-      reviewStatus: "PENDING",
-      researchRecords: { some: { status: "COMPLETE" } },
-    },
-    select: { id: true },
-    orderBy: { discoveredAt: "desc" },
-    take: 25,
-  });
-
-  for (const lead of pending) {
-    try {
-      await scoreLeadAction(lead.id);
-    } catch (error) {
-      console.error("Pending lead rescoring failed", { leadId: lead.id, error });
-    }
-  }
-
-  revalidatePath("/leads/newly-found");
-  revalidatePath("/dashboard");
-}
