@@ -43,7 +43,8 @@ function candidateId(lead: DiscoveredLead) {
 function failedEvaluation(lead: DiscoveredLead, reason: string): DiscoveredLead {
   return {
     ...lead,
-    profileFitScore: 0,
+    // Missing/failed AI evaluation is unknown, not a measured 0/100 fit.
+    profileFitScore: undefined,
     profileFitReason: reason,
   };
 }
