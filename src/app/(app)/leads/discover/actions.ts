@@ -15,7 +15,21 @@ import { requireWorkspace } from "@/lib/workspace";
 import { reserveGooglePlacesTextSearch } from "@/lib/lead-discovery/usage";
 import { analyzeLeadAction } from "@/app/(app)/leads/actions";
 
-export type DiscoveryActionState = { results: DiscoveredLead[]; error: string | null };
+export type DiscoveryDiagnostics = {
+  provider: string;
+  found: number;
+  newCandidates: number;
+  initiallyEligible: number;
+  afterAi: number;
+  researched: number;
+  verified: number;
+  displayed: number;
+};
+export type DiscoveryActionState = {
+  results: DiscoveredLead[];
+  error: string | null;
+  diagnostics: DiscoveryDiagnostics | null;
+};
 export type AddDiscoveryState = { message: string | null; error: string | null };
 
 const TARGET_VERIFIED_OPPORTUNITIES = 10;
@@ -70,7 +84,7 @@ export async function discoverLeadsAction(
     .filter(Boolean);
 
   if (!industry && !location && keywords.length === 0) {
-    return { results: [], error: "Add an industry, location or keyword to start discovery." };
+    return { results: [], error: "Määritä ensin toimiala, alue tai hakusana.", diagnostics: null };
   }
 
   const provider = getLeadDiscoveryProvider(providerName);
@@ -115,23 +129,33 @@ export async function discoverLeadsAction(
   };
 
   const candidateLimit = provider.name === "prh-ytj" ? 600 : 10;
-  const candidates = await discoverSmartCandidates(
-    provider,
-    {
-      industry: industry || undefined,
-      location: location || undefined,
-      companySize: companySize || undefined,
-      keywords,
-      limit: candidateLimit,
-    },
-    {
-      offering: profileForRanking.offering,
-      targetCustomer: profileForRanking.targetCustomer,
-      industries: profileForRanking.industries,
-      keywords: profileForRanking.keywords,
-      excludedIndustries: profileForRanking.excludedIndustries,
-    },
-  );
+  let candidates: DiscoveredLead[];
+  try {
+    candidates = await discoverSmartCandidates(
+      provider,
+      {
+        industry: industry || undefined,
+        location: location || undefined,
+        companySize: companySize || undefined,
+        keywords,
+        limit: candidateLimit,
+      },
+      {
+        offering: profileForRanking.offering,
+        targetCustomer: profileForRanking.targetCustomer,
+        industries: profileForRanking.industries,
+        keywords: profileForRanking.keywords,
+        excludedIndustries: profileForRanking.excludedIndustries,
+      },
+    );
+  } catch (error) {
+    console.error("Lead discovery provider failed", { provider: provider.name, error });
+    return {
+      results: [],
+      error: "Yrityshaku epäonnistui hakulähteessä. Tarkista palvelimen virheloki ja kokeile uudelleen.",
+      diagnostics: null,
+    };
+  }
 
   const existingNames = new Set(existingLeads.map((lead) => lead.companyNameNormalized).filter(Boolean));
   const existingDomains = new Set(existingLeads.map((lead) => lead.domainNormalized).filter(Boolean));
@@ -155,6 +179,16 @@ export async function discoverLeadsAction(
   });
 
   const initiallyRanked = rankCandidates(newCandidates, profileForRanking);
+  const diagnostics: DiscoveryDiagnostics = {
+    provider: provider.name,
+    found: candidates.length,
+    newCandidates: newCandidates.length,
+    initiallyEligible: initiallyRanked.length,
+    afterAi: initiallyRanked.length,
+    researched: 0,
+    verified: 0,
+    displayed: 0,
+  };
   let ranked: DiscoveredLead[] = initiallyRanked;
 
   if (provider.name === "prh-ytj" && initiallyRanked.length) {
@@ -164,6 +198,7 @@ export async function discoverLeadsAction(
       { targetStrongCandidates: TARGET_STRONG_CANDIDATES },
     );
     const profileRanked = rankCandidates(aiEvaluated, profileForRanking);
+    diagnostics.afterAi = profileRanked.length;
     const researched: DiscoveredLead[] = [];
     let verifiedCount = 0;
 
@@ -192,25 +227,39 @@ export async function discoverLeadsAction(
         }
       }
 
-      const verifiedBatch = await verifyBuyingSignalsForCandidates(enrichedBatch);
+      let verifiedBatch: DiscoveredLead[];
+      try {
+        verifiedBatch = await verifyBuyingSignalsForCandidates(enrichedBatch);
+      } catch (error) {
+        console.error("Lead buying-signal verification failed", { error });
+        // Preserve candidates for manual review; never invent a signal.
+        verifiedBatch = enrichedBatch;
+      }
       researched.push(...verifiedBatch);
       verifiedCount += verifiedBatch.filter(isVerifiedOpportunity).length;
     }
 
+    diagnostics.researched = researched.length;
+    diagnostics.verified = verifiedCount;
     ranked = sortByOpportunityQuality(
       rankCandidates(researched, profileForRanking),
     );
   }
 
   const results = ranked.slice(0, 10);
+  diagnostics.displayed = results.length;
   if (!results.length) {
-    return {
-      results: [],
-      error: "No suitable new companies were found from this candidate pool. Try broadening the profile or search again later.",
-    };
+    const error = diagnostics.found === 0
+      ? "PRH/YTJ ei palauttanut yritysehdokkaita. Kokeile toista toimialaa tai aluetta."
+      : diagnostics.newCandidates === 0
+        ? "Kaikki löydetyt yritykset ovat jo liideissä. Kokeile toista kohdealaa tai aluetta."
+        : diagnostics.initiallyEligible === 0
+          ? "Yrityksiä löytyi, mutta kaikki karsiutuivat esisuodatuksessa. Tarkista Myyntiprofiilin toimiala- ja poissulkurajaukset."
+          : "Yrityksiä löytyi, mutta sopivia ehdokkaita ei jäänyt jatkotutkimukseen. Tarkista Myyntiprofiili tai valitse toinen toimiala.";
+    return { results: [], error, diagnostics };
   }
 
-  return { results, error: null };
+  return { results, error: null, diagnostics };
 }
 
 export async function addDiscoveredLeadsAction(
