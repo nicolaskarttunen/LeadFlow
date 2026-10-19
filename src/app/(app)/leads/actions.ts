@@ -309,6 +309,7 @@ export async function updateLeadAction(
     });
   });
 
+  await refreshExistingLeadScore(leadId, workspace.id);
   revalidatePath("/dashboard");
   revalidatePath("/leads");
   revalidatePath(`/leads/${leadId}`);
@@ -597,6 +598,7 @@ export async function researchWebsiteAction(leadId: string) {
     });
   });
 
+  await refreshExistingLeadScore(lead.id, workspace.id);
   revalidatePath(`/leads/${lead.id}`);
 }
 
@@ -716,6 +718,23 @@ export async function scoreLeadAction(leadId: string) {
   revalidatePath(`/leads/${lead.id}`);
 }
 
+
+/**
+ * Update an existing score when manually edited lead details or website audit
+ * change. New discoveries receive their initial score in analyzeLeadAction.
+ */
+async function refreshExistingLeadScore(leadId: string, workspaceId: string) {
+  const existingScore = await prisma.leadScore.findFirst({
+    where: { leadId, workspaceId },
+    select: { id: true },
+  });
+  if (!existingScore) return;
+  try {
+    await scoreLeadAction(leadId);
+  } catch (error) {
+    console.error("Automatic lead score refresh failed", { leadId, error });
+  }
+}
 
 export async function analyzeLeadAction(leadId: string) {
   const { workspace } = await requireWorkspace();
