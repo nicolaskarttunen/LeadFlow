@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { discoverLeadsAction } from "@/app/(app)/leads/discover/actions";
+import type { DiscoveryActionState } from "@/app/(app)/leads/discover/actions";
 
-const discoveryInitial = { results: [], error: null };
+const discoveryInitial: DiscoveryActionState = { results: [], error: null, diagnostics: null };
 const inputClass = "w-full rounded-xl border border-white/[0.09] bg-white/[0.035] px-3.5 py-3 text-sm text-slate-100 outline-none transition focus:border-violet-400/50 focus:ring-4 focus:ring-violet-500/[0.08]";
 
 type SalesProfile = {
@@ -29,6 +30,7 @@ export function DiscoveryForm({ locale, profile }: { locale: "fi" | "en"; profil
   useEffect(() => {
     if (!discovery.results.length) return;
     sessionStorage.setItem("leadflow.discovery.results", JSON.stringify(discovery.results));
+    sessionStorage.setItem("leadflow.discovery.diagnostics", JSON.stringify(discovery.diagnostics));
     router.push("/leads/discover/results");
   }, [discovery.results, router]);
 
@@ -126,7 +128,34 @@ export function DiscoveryForm({ locale, profile }: { locale: "fi" | "en"; profil
         {fi ? "Täydennä Myyntiprofiiliin mitä myyt ja vähintään yksi ostosignaali tai kuvaus hyvästä asiakkaasta. Sen jälkeen LeadFlow voi hakea myös ilman toimiala- tai aluerajausta." : "Complete what you sell and add at least one buying signal or ideal-customer description. Then LeadFlow can search without an industry or region restriction."}
       </div> : null}
 
-      {discovery.error ? <div className="mt-5 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3 text-sm text-red-200">{discovery.error}</div> : null}
+      {discovery.error ? <div role="alert" className="mt-5 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3 text-sm text-red-200">{discovery.error}</div> : null}
+
+      {discovery.diagnostics ? (
+        <section aria-label={fi ? "Haun vaiheet" : "Search stages"} className="mt-5 rounded-2xl border border-white/[0.09] p-4">
+          <h3 className="text-sm font-semibold text-slate-200">{fi ? "Haun vaiheet" : "Search stages"}</h3>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+            {[
+              [fi ? "Hakulähteestä" : "From provider", discovery.diagnostics.found],
+              [fi ? "Uusia" : "New companies", discovery.diagnostics.newCandidates],
+              [fi ? "Esikarsinnasta" : "Initial fit", discovery.diagnostics.initiallyEligible],
+              [fi ? "AI-arvion jälkeen" : "After AI review", discovery.diagnostics.afterAi],
+              [fi ? "Tutkittu" : "Researched", discovery.diagnostics.researched],
+              [fi ? "Varmennettu" : "Verified", discovery.diagnostics.verified],
+              [fi ? "Näytettävissä" : "Results", discovery.diagnostics.displayed],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="rounded-xl border border-white/[0.06] p-3">
+                <div className="text-slate-500">{label}</div>
+                <div className="mt-1 text-lg font-semibold text-slate-200">{value}</div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            {fi
+              ? "Varmennettujen ostosignaalien puuttuminen ei tarkoita, että yritystä ei olisi löydetty."
+              : "Lack of verified buying signals does not mean the company was not found."}
+          </p>
+        </section>
+      ) : null}
 
       <div className="mt-6 flex flex-col gap-3 border-t border-white/[0.07] pt-5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-slate-500">{fi ? "Hakutulokset avautuvat tarkistettaviksi ennen kuin mitään lisätään liideihin." : "Results open for review before anything is added to your leads."}</p>
