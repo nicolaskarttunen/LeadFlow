@@ -13,6 +13,7 @@ import { requireWorkspace } from "@/lib/workspace";
 import { getGooglePlaceDetails } from "@/lib/lead-discovery/google-place-details";
 import { reserveGooglePlacesDetails } from "@/lib/lead-discovery/place-details-usage";
 import { researchPublicWebsite } from "@/lib/lead-research/website-research";
+import { matchesTargetIndustry, matchesTargetRegion } from "@/lib/lead-scoring/industry-fit";
 
 export type LeadActionState = {
   error: string | null;
@@ -625,13 +626,20 @@ export async function scoreLeadAction(leadId: string) {
   const norm = (value?: string | null) => (value ?? "").toLocaleLowerCase("fi-FI").trim();
   const containsAny = (value: string | null | undefined, wanted: string[]) => {
     const haystack = norm(value);
-    return wanted.some((item) => haystack.includes(norm(item)) || norm(item).includes(haystack));
+    if (!haystack) return false;
+    return wanted.some((item) => {
+      const needle = norm(item);
+      return needle.length > 0 && (haystack.includes(needle) || needle.includes(haystack));
+    });
   };
   const excludedIndustry = containsAny(lead.industry, profile.excludedIndustries);
-  const excludedCompany = profile.excludedCompanies.some((item) => norm(lead.companyName).includes(norm(item)));
-  const industryMatch = profile.industries.length === 0 ? null : containsAny(lead.industry, profile.industries);
-  const regionMatch = profile.regions.length === 0 ? null : containsAny(lead.location, profile.regions);
-  const sizeMatch = !profile.companySize ? null : (lead.companySize ? norm(lead.companySize) === norm(profile.companySize) : null);
+  const excludedCompany = profile.excludedCompanies.some((item) => {
+    const name = norm(item);
+    return name.length > 0 && norm(lead.companyName).includes(name);
+  });
+  const industryMatch = matchesTargetIndustry(lead.industry, profile.industries);
+  const regionMatch = matchesTargetRegion(lead.location, profile.regions, lead.providerName);
+    const sizeMatch = !profile.companySize ? null : (lead.companySize ? norm(lead.companySize) === norm(profile.companySize) : null);
 
   const fitParts = [
     { configured: profile.industries.length > 0, match: industryMatch, weight: 20 },
