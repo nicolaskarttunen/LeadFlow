@@ -64,6 +64,6 @@ export function matchesTargetRegion(
   if (nationwide && ["prh-ytj", "google-places"].includes(providerName ?? "")) return true;
   const knownLocation = normalize(location ?? "");
   if (!knownLocation) return null;
-  if (nationwide && /\\b(suomi|finland)\\b/u.test(knownLocation)) return true;
+  if (nationwide && (knownLocation.includes("suomi") || knownLocation.includes("finland"))) return true;
   return regionValues.some((region) => knownLocation.includes(region));
 }
