@@ -151,15 +151,29 @@ export async function generateLeadEmailDraftAction(
     return { error: "Liidiä ei löytynyt.", message: null };
   }
 
+  const opportunityEvidence = await prisma.researchEvidence.findMany({
+    where: { workspaceId: workspace.id, leadId, type: "ai_opportunity" },
+    orderBy: { observedAt: "desc" },
+    take: 5,
+    select: { id: true, description: true, sourceUrl: true },
+  });
+  const opportunities: StoredSignal[] = opportunityEvidence
+    .filter((item) => Boolean(item.sourceUrl) && item.description.includes("Lähdekatkelma:"))
+    .map((item) => ({
+      key: `opportunity:${item.id}`,
+      label: "Yrityksen sisältöön perustuva kehitysehdotus",
+      evidence: `${item.description} Lähde: ${item.sourceUrl}`,
+      confidence: "MEDIUM" as const,
+    }));
   const signals = readStoredSignals(discoveryAudit?.metadata);
-  if (!signals.length) {
+  if (!signals.length && !opportunities.length) {
     return {
       error: "Tälle liidille ei ole tallennettu varmennettua ostosignaalia. Tee ensin lisätutkimus ennen sähköpostiluonnosta.",
       message: null,
     };
   }
 
-  const relevantSignals = signals.filter((signal) => !isTechnicalOnlySignal(signal));
+  const relevantSignals = [...opportunities, ...signals.filter((signal) => !isTechnicalOnlySignal(signal))];
   if (!relevantSignals.length) {
     return {
       error: "Tutkimuksessa löytyi vain teknisiä verkkosivuhavaintoja. Ne eivät yksin riitä hyödylliseen myyntiviestiin. Tutki yrityksen palveluita ja asiakkaan asiointia tarkemmin.",
@@ -210,7 +224,7 @@ export async function generateLeadEmailDraftAction(
         model,
         instructions: `Write ONE naturally personal B2B outreach email in ${language}, as a helpful small-business owner, not a marketing agency.
 Use ONLY the supplied evidence and company profile. Never invent problems, services, numbers, an absent booking feature, or customer behavior. Website observations are not proof of buying intent.
-Choose exactly ONE evidence item from highConfidenceSignals or mediumConfidenceSignals. Base the opening and proposed improvement on that single observation. Never extrapolate an observed missing HTML element into a claim that a customer cannot find a service or cannot contact the business. If the observation has no actionable customer-facing implication, say so by returning an empty subject and body. Never sell isolated metadata, ranking, code or other invisible technical fixes as the sole pitch.
+Prefer a well-grounded business opportunity over generic website observations. Choose exactly ONE evidence item from highConfidenceSignals or mediumConfidenceSignals. Base the opening and proposed improvement on that single observation. Never extrapolate an observed missing HTML element into a claim that a customer cannot find a service or cannot contact the business. If the observation has no actionable customer-facing implication, say so by returning an empty subject and body. Never sell isolated metadata, ranking, code or other invisible technical fixes as the sole pitch.
 Explain ONE practical improvement and the benefit it might bring, using cautious possibilities rather than unsupported claims.
 A MEDIUM-confidence observation is uncertain and MUST be softened, for example "sivua katsoessani en heti löytänyt...", never asserted as a definite absence. HIGH-confidence observations may be presented carefully as facts.
 Write naturally in the first person: "Huomasin..." and "Voisin..." instead of "Nicolasdesign toteuttaa...".
