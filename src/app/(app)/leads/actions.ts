@@ -526,7 +526,7 @@ export async function researchPrhLeadAction(leadId: string) {
 }
 
 
-export async function researchWebsiteAction(leadId: string) {
+export async function researchWebsiteAction(leadId: string, forceRefresh = false) {
   const { user, workspace } = await requireWorkspace();
   const lead = await prisma.lead.findFirst({
     where: { id: leadId, workspaceId: workspace.id },
@@ -539,7 +539,7 @@ export async function researchWebsiteAction(leadId: string) {
     where: { workspaceId: workspace.id, leadId: lead.id, status: "COMPLETE" },
     select: { id: true },
   });
-  if (existingAudit) {
+  if (existingAudit && !forceRefresh) {
     revalidatePath(`/leads/${lead.id}`);
     return;
   }
