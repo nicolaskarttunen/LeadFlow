@@ -570,7 +570,8 @@ export async function researchWebsiteAction(leadId: string) {
       result.h1 ? { type: "h1", description: `Homepage H1: ${result.h1}` } : null,
       ...result.emails.map((email) => ({ type: "public_email", description: `Public email found on homepage: ${email}` })),
       { type: "contact_path", description: result.hasContactLink ? "Homepage contains a contact link." : "No clear contact link was detected on the homepage." },
-    ].filter((item): item is { type: string; description: string } => Boolean(item));
+      ...result.businessPages.map((page) => ({ type: `business_page_${page.kind}`, description: `Verified ${page.kind} page: ${page.label || page.url}. Content excerpt: ${page.excerpt}`, sourceUrl: page.url })),
+    ].filter((item): item is { type: string; description: string; sourceUrl?: string } => Boolean(item));
 
     for (const item of evidence) {
       await tx.researchEvidence.create({
@@ -580,7 +581,7 @@ export async function researchWebsiteAction(leadId: string) {
           websiteAuditId: audit.id,
           type: item.type,
           description: item.description,
-          sourceUrl: result.finalUrl,
+          sourceUrl: item.sourceUrl ?? result.finalUrl,
           confidence: 90,
         },
       });
