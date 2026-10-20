@@ -21,10 +21,9 @@ function summary(signals: BuyingSignal[]) {
 function recommendedAngle(signals: BuyingSignal[]) {
   const keys = new Set(signals.map((item) => item.key));
   if (keys.has("google_no_website")) return "Verkkosivut ja paikallinen löydettävyys";
-  if (keys.has("missing_h1") || keys.has("missing_meta")) return "SEO ja verkkosivun rakenne";
   if (keys.has("weak_contact") || keys.has("missing_cta")) return "Konversio ja yhteydenoton helpottaminen";
-  if (keys.has("no_https")) return "Verkkosivun tekninen päivitys ja luottamus";
-  return signals.length ? "Verkkosivun kehitys havaittujen puutteiden perusteella" : undefined;
+  // A technical finding alone is not a verified customer-facing sales opportunity.
+  return undefined;
 }
 
 export async function verifyBuyingSignals(lead: DiscoveredLead): Promise<DiscoveredLead> {
@@ -86,7 +85,9 @@ export async function verifyBuyingSignals(lead: DiscoveredLead): Promise<Discove
       ));
     }
 
-    if (!research.hasPrimaryCta) {
+    // Only flag the absence of a homepage CTA when the homepage has readable content.
+    // An empty JS-rendered shell cannot be meaningfully evaluated through raw HTML.
+    if (research.visibleTextLength >= 200 && !research.hasPrimaryCta) {
       signals.push(signal(
         "missing_cta",
         "Etusivulta ei löytynyt selkeää toimintakehotusta",
@@ -95,7 +96,7 @@ export async function verifyBuyingSignals(lead: DiscoveredLead): Promise<Discove
       ));
     }
 
-    if (!research.hasContactLink && publicEmails.length === 0 && !research.hasPhone) {
+    if (research.visibleTextLength >= 200 && !research.hasContactLink && publicEmails.length === 0 && !research.hasPhone) {
       signals.push(signal(
         "weak_contact",
         "Yhteydenotto ei näy selkeästi etusivulla",
