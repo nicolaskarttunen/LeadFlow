@@ -52,6 +52,13 @@ function readStoredSignals(metadata: unknown): StoredSignal[] {
   });
 }
 
+// Technical audit findings alone are not a reason to pitch a business. 
+// This is a conservative guardrail, not proof that other signals imply demand.
+function isTechnicalOnlySignal(signal: StoredSignal) {
+  const text = [signal.key, signal.label, signal.evidence].join(" ").toLowerCase();
+  return /meta.?description|metakuvaus|meta.?kuvaus|meta.?title|h1(?:\b|_)|otsikkotagi|title.?tag|https|ssl|schema.?markup|robots\.txt|sitemap/.test(text);
+}
+
 function explanation(signals: StoredSignal[]) {
   const high = signals.filter((signal) => signal.confidence === "HIGH");
   const medium = signals.filter((signal) => signal.confidence === "MEDIUM");
@@ -67,7 +74,7 @@ function qualityIssues(subject: string, body: string) {
   if (words < 38 || words > 125) issues.push("Keep the email concise: about 50-95 words.");
   if (!subject || subject.length > 85) issues.push("Write a concise subject, max 85 characters.");
   if ((body.match(/\?/g) ?? []).length !== 1) issues.push("Include exactly one low-pressure question.");
-  if (/\b(?:h1|meta description|seo audit|konversio-optimointi|käyttäjäpolku)\b/i.test(body)) {
+  if (/\b(?:h1|meta description|metakuvaus|hakutuloksissa|hakutuloksiin|seo audit|konversio-optimointi|käyttäjäpolku)\b/i.test(body)) {
     issues.push("Remove technical marketing jargon; explain a concrete benefit instead.");
   }
   if (/nopeassa tarkistuksessa en huomannut|toteuttaa verkkosivuja, joissa|digitaaliset ratkaisut kasvaville/i.test(body)) {
@@ -152,8 +159,16 @@ export async function generateLeadEmailDraftAction(
     };
   }
 
-  const highConfidenceSignals = signals.filter((signal) => signal.confidence === "HIGH");
-  const mediumConfidenceSignals = signals.filter((signal) => signal.confidence === "MEDIUM");
+  const relevantSignals = signals.filter((signal) => !isTechnicalOnlySignal(signal));
+  if (!relevantSignals.length) {
+    return {
+      error: "Tutkimuksessa löytyi vain teknisiä verkkosivuhavaintoja. Ne eivät yksin riitä hyödylliseen myyntiviestiin. Tutki yrityksen palveluita ja asiakkaan asiointia tarkemmin.",
+      message: null,
+    };
+  }
+
+  const highConfidenceSignals = relevantSignals.filter((signal) => signal.confidence === "HIGH");
+  const mediumConfidenceSignals = relevantSignals.filter((signal) => signal.confidence === "MEDIUM");
   const contact = lead.contacts[0];
   const language = salesProfile?.language === "en" ? "English" : "Finnish";
 
@@ -195,7 +210,7 @@ export async function generateLeadEmailDraftAction(
         model,
         instructions: `Write ONE naturally personal B2B outreach email in ${language}, as a helpful small-business owner, not a marketing agency.
 Use ONLY the supplied evidence and company profile. Never invent problems, services, numbers, an absent booking feature, or customer behavior. Website observations are not proof of buying intent.
-Choose exactly ONE evidence item from highConfidenceSignals or mediumConfidenceSignals. Base the opening and proposed improvement on that single observation. Never extrapolate an observed missing HTML element into a claim that a customer cannot find a service or cannot contact the business. If the observation has no actionable customer-facing implication, say so by returning an empty subject and body.
+Choose exactly ONE evidence item from highConfidenceSignals or mediumConfidenceSignals. Base the opening and proposed improvement on that single observation. Never extrapolate an observed missing HTML element into a claim that a customer cannot find a service or cannot contact the business. If the observation has no actionable customer-facing implication, say so by returning an empty subject and body. Never sell isolated metadata, ranking, code or other invisible technical fixes as the sole pitch.
 Explain ONE practical improvement and the benefit it might bring, using cautious possibilities rather than unsupported claims.
 A MEDIUM-confidence observation is uncertain and MUST be softened, for example "sivua katsoessani en heti löytänyt...", never asserted as a definite absence. HIGH-confidence observations may be presented carefully as facts.
 Write naturally in the first person: "Huomasin..." and "Voisin..." instead of "Nicolasdesign toteuttaa...".
