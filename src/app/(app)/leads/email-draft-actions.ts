@@ -20,6 +20,7 @@ type StoredSignal = {
 type DraftResponse = {
   subject?: string;
   body?: string;
+  evidenceKey?: string;
 };
 
 const initialState: EmailDraftActionState = { error: null, message: null };
@@ -170,7 +171,7 @@ export async function generateLeadEmailDraftAction(
       name: user.name?.trim() ?? "",
       companyName: companyProfile?.companyName ?? null,
       website: companyProfile?.website ?? null,
-      offering: companyProfile?.offering ?? lead.potentialService ?? null,
+      offering: companyProfile?.offering ?? null,
       description: companyProfile?.description ?? null,
       tone: companyProfile?.emailTone ?? "Professional",
     },
@@ -182,9 +183,11 @@ export async function generateLeadEmailDraftAction(
   try {
     const client = new OpenAI();
     const model = process.env.OPENAI_OUTREACH_MODEL || process.env.OPENAI_MODEL || "gpt-5.6-sol";
+    const eligibleSignals = [...highConfidenceSignals, ...mediumConfidenceSignals];
     let subject = "";
     let body = "";
     let issues: string[] = [];
+    let selectedSignal: StoredSignal | undefined;
 
     // Retry a substandard draft once instead of showing generic first output.
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -192,16 +195,17 @@ export async function generateLeadEmailDraftAction(
         model,
         instructions: `Write ONE naturally personal B2B outreach email in ${language}, as a helpful small-business owner, not a marketing agency.
 Use ONLY the supplied evidence and company profile. Never invent problems, services, numbers, an absent booking feature, or customer behavior. Website observations are not proof of buying intent.
-Use ONE specific observed detail that would matter to a customer of this particular industry. Explain ONE practical improvement and the benefit it might bring, using cautious possibilities rather than unsupported claims.
+Choose exactly ONE evidence item from highConfidenceSignals or mediumConfidenceSignals. Base the opening and proposed improvement on that single observation. Never extrapolate an observed missing HTML element into a claim that a customer cannot find a service or cannot contact the business. If the observation has no actionable customer-facing implication, say so by returning an empty subject and body.
+Explain ONE practical improvement and the benefit it might bring, using cautious possibilities rather than unsupported claims.
 A MEDIUM-confidence observation is uncertain and MUST be softened, for example "sivua katsoessani en heti löytänyt...", never asserted as a definite absence. HIGH-confidence observations may be presented carefully as facts.
 Write naturally in the first person: "Huomasin..." and "Voisin..." instead of "Nicolasdesign toteuttaa...".
 Write 50–95 words in 2–3 short paragraphs, beginning "Hei!" in Finnish (or "Hi,"). Finish with exactly ONE low-pressure, easy-to-answer question.
-Include only the actual sender service described in the facts, and only if it helps the proposed change. Don't be pushy. Do not insult the website. No generic compliments, invented familiarity, buzzwords, em dashes, emoji or technical SEO jargon such as H1, meta description and CTA.
+Include only the actual sender service described in sender.offering, and only if it helps the proposed change. If sender.offering is missing or unrelated, do not promise delivery of a service. Don't be pushy. Do not insult the website. No generic compliments, invented familiarity, buzzwords, em dashes, emoji or technical SEO jargon such as H1, meta description and CTA.
 Subject: 3–8 words, relevant to this company and specific idea, not clickbait.
 Do not repeat the company name or the same benefit needlessly. Do not mention LeadFlow, AI, PRH, Google, confidence scores, data collection or internal research.
 Avoid generic phrases "nopeassa tarkistuksessa en huomannut", "voisi auttaa kävijää etenemään", "ilman ylimääräistä etsimistä" and "nykypäivän digitaalisessa maailmassa".
 DO NOT write a signature: the app appends the sender's real account name and company.
-Return only valid JSON: {"subject":"...","body":"..."}.`,
+Return only valid JSON: {"subject":"...","body":"...","evidenceKey":"..."}. evidenceKey MUST exactly equal the key of the single supplied observation used in the email. Never invent an evidenceKey.`,
         input: JSON.stringify({
           ...facts,
           correction: attempt === 0 ? undefined : {
@@ -218,7 +222,12 @@ Return only valid JSON: {"subject":"...","body":"..."}.`,
       const parsed = JSON.parse(cleanJson(response.output_text)) as DraftResponse;
       subject = String(parsed.subject ?? "").trim();
       body = String(parsed.body ?? "").trim();
+      selectedSignal = eligibleSignals.find((signal) => signal.key === parsed.evidenceKey);
       issues = qualityIssues(subject, body);
+      if (!selectedSignal) issues.push("Choose one existing evidenceKey from the supplied signals.");
+      if (selectedSignal?.confidence === "MEDIUM" && !/(?:ehkä|mahdollis|saatta|voisi|en heti|en löytänyt|en huomannut|might|may|could|did not immediately)/i.test(body)) {
+        issues.push("Phrase the uncertain finding as a possibility, not as a verified problem.");
+      }
       if (!issues.length) break;
     }
 
@@ -227,6 +236,10 @@ Return only valid JSON: {"subject":"...","body":"..."}.`,
         error: "AI ei onnistunut luomaan riittävän laadukasta viestiä. Tarkista yrityksen havainnot ja kokeile uudelleen.",
         message: null,
       };
+    }
+
+    if (!selectedSignal) {
+      return { error: "Luonnokselle ei löytynyt todennettua havaintoa.", message: null };
     }
 
     body = appendSignature(body, language, user.name ?? "", companyProfile?.companyName).slice(0, 5000);
@@ -247,12 +260,11 @@ Return only valid JSON: {"subject":"...","body":"..."}.`,
       subject,
       body,
       status: "NEEDS_REVIEW" as const,
-      personalizationExplanation: explanation(signals),
+      personalizationExplanation: `Käytetty havainto: ${selectedSignal.label}. Peruste: ${selectedSignal.evidence}. Varmuus: ${selectedSignal.confidence}.`,
       factsUsed: {
-        highConfidenceSignals,
-        mediumConfidenceSignals,
+        selectedSignal,
         recommendedAngle: lead.potentialService ?? null,
-        offering: companyProfile?.offering ?? lead.potentialService ?? null,
+        offering: companyProfile?.offering ?? null,
       },
       // This is not a statistically calibrated confidence estimate for prose.
       confidence: null,
