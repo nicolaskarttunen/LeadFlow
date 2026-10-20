@@ -84,6 +84,12 @@ export default async function LeadDetailPage({
   const latestScore = lead.scores[0];
   const research = lead.researchRecords[0];
   const websiteAudit = lead.websiteAudits[0];
+  const businessOpportunities = websiteAudit ? await prisma.researchEvidence.findMany({
+    where: { workspaceId: workspace.id, leadId: lead.id, websiteAuditId: websiteAudit.id, type: "ai_opportunity" },
+    orderBy: { observedAt: "desc" },
+    take: 3,
+    select: { id: true, description: true, sourceUrl: true },
+  }) : [];
   const latestDraft = lead.emailDrafts[0];
 
   const statusLabel: Record<string, string> = { NEW: fi ? "UUSI" : "NEW", APPROVED: fi ? "HYVÄKSYTTY" : "APPROVED", REVIEW: fi ? "TARKISTETTAVA" : "REVIEW", CONTACTED: fi ? "KONTAKTOITU" : "CONTACTED", REPLIED: fi ? "VASTANNUT" : "REPLIED" };
@@ -205,14 +211,26 @@ export default async function LeadDetailPage({
                   <h2 className="font-semibold">{fi ? "Verkkosivuanalyysi" : "Website analysis"}</h2>
                   <p className="mt-1 text-xs text-slate-500">{fi ? "Perustuu yrityksen julkisen etusivun havaintoihin." : "Based on observations from the company’s public homepage."}</p>
                 </div>
-                {websiteAudit ? (
-                  <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1 text-xs font-medium text-emerald-200">{fi ? "Analyysi valmis" : "Analysis complete"}</span>
-                ) : (
-                  <form action={researchWebsiteAction.bind(null, lead.id)}>
+                <div className="flex flex-wrap items-center gap-2">
+                  {websiteAudit ? (
+                    <span className="rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1 text-xs font-medium text-emerald-200">{fi ? "Analyysi valmis" : "Analysis complete"}</span>
+                  ) : null}
+                  <form action={researchWebsiteAction.bind(null, lead.id, true)}>
                     <WebsiteResearchButton />
                   </form>
-                )}
+                </div>
               </div>
+              {websiteAudit ? (
+                <div className="mt-5 space-y-3">
+                  <h3 className="text-sm font-semibold">{fi ? "AI:n löytämät mahdollisuudet" : "AI opportunities"}</h3>
+                  {businessOpportunities.length ? businessOpportunities.map((item) => (
+                    <div key={item.id} className="rounded-xl border border-violet-400/20 p-4 text-sm">
+                      <p className="whitespace-pre-wrap text-slate-200">{item.description}</p>
+                      {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block break-all text-sky-300 underline">{fi ? "Tarkista lähde" : "Check source"}</a> : null}
+                    </div>
+                  )) : <p className="text-sm text-slate-400">{fi ? "Tästä analyysistä ei löytynyt riittävän perusteltua kehitysehdotusta." : "No sufficiently supported opportunity was found in this analysis."}</p>}
+                </div>
+              ) : null}
               {websiteAudit ? (
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Detail label="HTTPS" value={websiteAudit.httpsEnabled === null ? null : websiteAudit.httpsEnabled ? "Kyllä" : "Ei"} />
