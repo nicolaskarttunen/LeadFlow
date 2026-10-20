@@ -113,6 +113,17 @@ function extractEmails(html: string) {
   return Array.from(values).slice(0, 10);
 }
 
+function extractMailtoEmails(html: string) {
+  const values = new Set<string>();
+  for (const item of decodeHtml(html).matchAll(/href=["']mailto:([^"'?\s>]+)(?:\?[^"']*)?["']/gi)) {
+    let raw = item[1] ?? "";
+    try { raw = decodeURIComponent(raw); } catch { /* Leave the original value. */ }
+    const email = validEmail(raw);
+    if (email) values.add(email);
+  }
+  return Array.from(values);
+}
+
 function normalizePhone(value: string) {
   const trimmed = decodeHtml(value).replace(/^tel:/i, "").trim();
   const cleaned = trimmed.replace(/[^\d+]/g, "");
@@ -257,6 +268,8 @@ export type WebsiteResearch = {
   h1: string | null;
   emails: string[];
   emailSources: Array<{ email: string; sourceUrl: string }>;
+  // Only addresses explicitly linked as mailto on the company's public site.
+  mailtoEmails: string[];
   phones: string[];
   phoneSources: Array<{ phone: string; sourceUrl: string }>;
   hasPhone: boolean;
@@ -277,9 +290,11 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
   const h1 = match(html, /<h1[^>]*>([\s\S]*?)<\/h1>/i);
   const contactUrls = extractContactUrls(html, finalUrl);
   const emailSourceMap = new Map<string, string>();
+  const mailtoEmails = new Set<string>();
   const phoneSourceMap = new Map<string, string>();
 
   for (const email of extractEmails(html)) emailSourceMap.set(email, finalUrl);
+  for (const email of extractMailtoEmails(html)) mailtoEmails.add(email);
   for (const phone of extractPhones(html, pageText)) phoneSourceMap.set(phone, finalUrl);
 
   const hasContactLink = contactUrls.length > 0;
@@ -291,6 +306,7 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
       for (const email of extractEmails(contactPage.html)) {
         if (!emailSourceMap.has(email)) emailSourceMap.set(email, contactPage.finalUrl);
       }
+      for (const email of extractMailtoEmails(contactPage.html)) mailtoEmails.add(email);
       for (const phone of extractPhones(contactPage.html, contactPage.pageText)) {
         if (!phoneSourceMap.has(phone)) phoneSourceMap.set(phone, contactPage.finalUrl);
       }
@@ -314,6 +330,7 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
     h1,
     emails: emailSources.map((item) => item.email),
     emailSources,
+    mailtoEmails: Array.from(mailtoEmails).slice(0, 10),
     phones: phoneSources.map((item) => item.phone),
     phoneSources,
     hasPhone: phoneSources.length > 0,
