@@ -7,6 +7,7 @@ import { deleteLeadAction, researchWebsiteAction, scoreLeadAction } from "@/app/
 import { WebsiteResearchButton } from "@/components/website-research-button";
 import { LeadScoreButton } from "@/components/lead-score-button";
 import { EmailDraftGenerator } from "@/components/email-draft-generator";
+import { FindPublicEmailsButton } from "@/components/find-public-emails-button";
 
 function Detail({
   label,
@@ -79,6 +80,7 @@ export default async function LeadDetailPage({
   }
 
   const primaryContact = lead.contacts.find((contact) => contact.isPrimary);
+  const additionalContacts = lead.contacts.filter((contact) => contact.email && contact.id !== primaryContact?.id);
   const latestScore = lead.scores[0];
   const research = lead.researchRecords[0];
   const websiteAudit = lead.websiteAudits[0];
@@ -96,7 +98,7 @@ export default async function LeadDetailPage({
     PAUSED: fi ? "Tauolla" : "Paused",
     REJECTED: fi ? "Hylätty" : "Rejected",
   };
-  const evidenceTypeLabel = (type: string) => fi ? ({ website: "Verkkosivu", phone: "Puhelin", address: "Osoite", industry: "Toimiala", business_id: "Y-tunnus" } as Record<string, string>)[type.toLowerCase()] ?? type : type;
+  const evidenceTypeLabel = (type: string) => fi ? ({ website: "Verkkosivu", phone: "Puhelin", address: "Osoite", industry: "Toimiala", business_id: "Y-tunnus", public_email: "Julkinen sähköpostiosoite" } as Record<string, string>)[type.toLowerCase()] ?? type : type;
   const decodeDisplayText = (value?: string | null) => value?.replaceAll("&#8211;", "–").replaceAll("&#8212;", "—").replaceAll("&amp;", "&");
   const localizeGeneratedText = (raw?: string | null) => {
     const value = decodeDisplayText(raw);
@@ -374,9 +376,37 @@ export default async function LeadDetailPage({
               <Detail label={fi ? "Sähköposti" : "Email"} value={primaryContact?.email} />
               <Detail
                 label={fi ? "Vahvistus" : "Verification"}
-                value={primaryContact?.emailVerificationStatus}
+                value={primaryContact?.emailVerificationStatus === "UNKNOWN"
+                  ? fi ? "Ei vahvistettu" : "Not verified"
+                  : primaryContact?.emailVerificationStatus}
               />
             </div>
+            {additionalContacts.length ? (
+              <div className="mt-5 border-t border-white/10 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  {fi ? "Muut julkiset osoitteet" : "Other public addresses"}
+                </p>
+                <div className="mt-3 space-y-2">
+                  {additionalContacts.map((contact) => (
+                    <p key={contact.id} className="break-all text-sm text-slate-300">{contact.email}</p>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {lead.website ? (
+              <FindPublicEmailsButton leadId={lead.id} fi={fi} />
+            ) : (
+              <p className="mt-5 text-xs leading-5 text-slate-500">
+                {fi
+                  ? "Julkisten sähköpostien haku edellyttää yrityksen verkkosivua."
+                  : "Public email lookup requires a company website."}
+              </p>
+            )}
+            <p className="mt-3 text-xs leading-5 text-slate-500">
+              {fi
+                ? "Julkisesti löytynyt osoite ei ole automaattisesti toimitettavuudeltaan varmennettu. Tarkista vastaanottaja ennen lähettämistä."
+                : "A publicly listed address has not been verified as deliverable. Check the recipient before sending."}
+            </p>
           </section>
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6">
