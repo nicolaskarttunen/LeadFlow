@@ -119,6 +119,7 @@ export async function findLeadPublicEmailsAction(
         data: {
           workspaceId: workspace.id,
           leadId: lead.id,
+          researchRecordId: lead.researchRecords[0]?.id ?? null,
           type: "public_email",
           description: `Yrityksen verkkosivulla julkaistu sähköpostiosoite: ${email}`,
           sourceUrl,
