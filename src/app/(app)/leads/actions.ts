@@ -599,7 +599,7 @@ export async function researchWebsiteAction(leadId: string) {
           type: item.type,
           description: item.description,
           sourceUrl: item.sourceUrl ?? result.finalUrl,
-          confidence: 90,
+          confidence: item.type === "ai_opportunity" ? 65 : 90,
         },
       });
     }
