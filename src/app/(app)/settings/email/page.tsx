@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SmtpConnectionForm } from "./smtp-connection-form";
 import prisma from "@/lib/prisma";
 import { getCurrentLocale } from "@/lib/current-locale";
 import {
@@ -45,6 +46,8 @@ export default async function EmailSettingsPage({
     orderBy: { createdAt: "asc" },
   });
 
+  const smtp = connections.find((item) => item.providerName === "SMTP_CUSTOM");
+  const smtpConfig = publicConfig(smtp?.publicConfig);
   const google = connections.find((item) => item.providerName === "GOOGLE_GMAIL");
   const microsoft = connections.find((item) => item.providerName === "MICROSOFT_365");
   const googleConfig = publicConfig(google?.publicConfig);
@@ -136,6 +139,22 @@ export default async function EmailSettingsPage({
           {errorText[query.error] ?? (fi ? "Sähköpostiyhteydessä tapahtui virhe." : "There was a problem connecting the mailbox.")}
         </div>
       ) : null}
+
+      <section className="mt-7 rounded-3xl border border-white/10 bg-white/[0.025] p-6">
+        <h2 className="text-lg font-semibold">Muu sähköpostipalvelu (SMTP)</h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Yhdistä yrityksen oma sähköpostiosoite esimerkiksi Zonerista. Tallennus on salattu; lähetys ei ole vielä käytössä.
+        </p>
+        {smtpConfig.email ? (
+          <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/[0.05] p-3 text-sm text-amber-100">
+            Tallennettu: {smtpConfig.email} · Odottaa yhteyden vahvistusta.
+            <form action={disconnectEmailProviderAction.bind(null, "SMTP_CUSTOM")} className="mt-3">
+              <button type="submit" className="rounded-lg border border-white/20 px-3 py-2 text-xs text-slate-200">Poista SMTP-asetukset</button>
+            </form>
+          </div>
+        ) : null}
+        <SmtpConnectionForm />
+      </section>
 
       <div className="mt-7 grid gap-4 lg:grid-cols-2">
         {providers.map((provider) => {
