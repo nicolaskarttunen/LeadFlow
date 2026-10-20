@@ -56,7 +56,7 @@ export async function verifyBuyingSignals(lead: DiscoveredLead): Promise<Discove
 
   try {
     const research = await researchPublicWebsite(lead.website);
-    const publicEmails = selectBusinessEmails(research.emails, research.finalUrl);
+    const publicEmails = selectBusinessEmails(research.emails, research.finalUrl, research.mailtoEmails);
     const signals: BuyingSignal[] = [];
 
     if (!research.httpsEnabled) {
