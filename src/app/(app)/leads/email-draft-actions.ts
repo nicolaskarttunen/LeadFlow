@@ -152,7 +152,7 @@ export async function generateLeadEmailDraftAction(
   }
 
   const opportunityEvidence = await prisma.researchEvidence.findMany({
-    where: { workspaceId: workspace.id, leadId, type: "ai_opportunity" },
+    where: { workspaceId: workspace.id, leadId, websiteAuditId: lead?.websiteAudits[0]?.id ?? "__no_audit__", type: "ai_opportunity" },
     orderBy: { observedAt: "desc" },
     take: 5,
     select: { id: true, description: true, sourceUrl: true },
