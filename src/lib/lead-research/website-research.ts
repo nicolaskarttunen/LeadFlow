@@ -193,7 +193,7 @@ function extractBusinessPageUrls(html: string, baseUrl: string) {
   const origin = new URL(baseUrl).origin;
   const pages: Array<{ url: string; label: string; kind: "services" | "booking" | "pricing" }> = [];
   const seen = new Set<string>();
-  for (const link of html.matchAll(/<a\\b[^>]*href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>/gi)) {
+  for (const link of html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const label = cleanText(link[2] ?? "") ?? "";
     const href = decodeHtml(link[1] ?? "");
     const combined = `${label} ${href}`.toLowerCase();
