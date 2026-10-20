@@ -13,6 +13,7 @@ import { requireWorkspace } from "@/lib/workspace";
 import { getGooglePlaceDetails } from "@/lib/lead-discovery/google-place-details";
 import { reserveGooglePlacesDetails } from "@/lib/lead-discovery/place-details-usage";
 import { researchPublicWebsite } from "@/lib/lead-research/website-research";
+import { analyzeBusinessOpportunities } from "@/lib/lead-research/business-opportunities";
 import { matchesTargetIndustry, matchesTargetRegion } from "@/lib/lead-scoring/industry-fit";
 
 export type LeadActionState = {
@@ -529,7 +530,7 @@ export async function researchWebsiteAction(leadId: string) {
   const { user, workspace } = await requireWorkspace();
   const lead = await prisma.lead.findFirst({
     where: { id: leadId, workspaceId: workspace.id },
-    select: { id: true, website: true },
+    select: { id: true, website: true, companyName: true, industry: true },
   });
   if (!lead) throw new Error("Lead not found.");
   if (!lead.website) throw new Error("This lead does not have a website.");
@@ -544,6 +545,21 @@ export async function researchWebsiteAction(leadId: string) {
   }
 
   const result = await researchPublicWebsite(lead.website);
+  const sender = await prisma.companyProfile.findUnique({
+    where: { workspaceId: workspace.id },
+    select: { offering: true },
+  });
+  let opportunities: Awaited<ReturnType<typeof analyzeBusinessOpportunities>> = [];
+  try {
+    opportunities = await analyzeBusinessOpportunities({
+      companyName: lead.companyName,
+      industry: lead.industry,
+      offering: sender?.offering ?? "",
+      pages: result.businessPages,
+    });
+  } catch (error) {
+    console.error("Business opportunity analysis failed", { leadId, error });
+  }
 
   await prisma.$transaction(async (tx) => {
     const audit = await tx.websiteAudit.create({
@@ -571,6 +587,7 @@ export async function researchWebsiteAction(leadId: string) {
       ...result.emails.map((email) => ({ type: "public_email", description: `Public email found on homepage: ${email}` })),
       { type: "contact_path", description: result.hasContactLink ? "Homepage contains a contact link." : "No clear contact link was detected on the homepage." },
       ...result.businessPages.map((page) => ({ type: `business_page_${page.kind}`, description: `Verified ${page.kind} page: ${page.label || page.url}. Content excerpt: ${page.excerpt}`, sourceUrl: page.url })),
+      ...opportunities.map((item) => ({ type: "ai_opportunity", description: `Havainto: ${item.observation}. Ehdotus: ${item.proposal}. Mahdollinen hyöty: ${item.customerBenefit}. Lähdekatkelma: ${item.evidenceQuote}`, sourceUrl: item.sourceUrl })),
     ].filter((item): item is { type: string; description: string; sourceUrl?: string } => Boolean(item));
 
     for (const item of evidence) {
