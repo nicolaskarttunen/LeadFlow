@@ -188,6 +188,33 @@ function extractContactUrls(html: string, baseUrl: string) {
   return urls.slice(0, MAX_CONTACT_PAGES);
 }
 
+// Explore a small number of customer-facing pages, without making absence claims.
+function extractBusinessPageUrls(html: string, baseUrl: string) {
+  const origin = new URL(baseUrl).origin;
+  const pages: Array<{ url: string; label: string; kind: "services" | "booking" | "pricing" }> = [];
+  const seen = new Set<string>();
+  for (const link of html.matchAll(/<a\\b[^>]*href=["']([^"']+)["'][^>]*>([\\s\\S]*?)<\\/a>/gi)) {
+    const label = cleanText(link[2] ?? "") ?? "";
+    const href = decodeHtml(link[1] ?? "");
+    const combined = `${label} ${href}`.toLowerCase();
+    const kind = /(ajanvaraus|varaa aika|booking|book now|reservation|varaus)/i.test(combined)
+      ? "booking" : /(hinnasto|prices|pricing|menu|ruokalista)/i.test(combined)
+      ? "pricing" : /(palvelut|services|hoidot|treatments|tuotteet)/i.test(combined)
+      ? "services" : null;
+    if (!kind) continue;
+    try {
+      const url = new URL(href, baseUrl);
+      if (!["http:", "https:"].includes(url.protocol) || url.origin !== origin) continue;
+      url.hash = "";
+      if (seen.has(url.href) || url.href === baseUrl) continue;
+      seen.add(url.href);
+      pages.push({ url: url.href, label: label.slice(0, 100), kind });
+      if (pages.length >= 3) break;
+    } catch { /* Ignore invalid links. */ }
+  }
+  return pages;
+}
+
 type FetchedPage = {
   finalUrl: string;
   html: string;
@@ -275,6 +302,7 @@ export type WebsiteResearch = {
   hasContactLink: boolean;
   hasPrimaryCta: boolean;
   visibleTextLength: number;
+  businessPages: Array<{ url: string; kind: "services" | "booking" | "pricing"; label: string; excerpt: string }>;
 };
 
 export async function researchPublicWebsite(startUrl: string): Promise<WebsiteResearch> {
@@ -288,6 +316,7 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
     ?? match(html, /<meta[^>]+content=["']([^"']*)["'][^>]+name=["']description["'][^>]*>/i);
   const h1 = match(html, /<h1[^>]*>([\s\S]*?)<\/h1>/i);
   const contactUrls = extractContactUrls(html, finalUrl);
+  const businessPageLinks = extractBusinessPageUrls(html, finalUrl);
   const emailSourceMap = new Map<string, string>();
   const mailtoEmails = new Set<string>();
   const phoneSourceMap = new Map<string, string>();
@@ -295,6 +324,21 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
   for (const email of extractEmails(html)) emailSourceMap.set(email, finalUrl);
   for (const email of extractMailtoEmails(html)) mailtoEmails.add(email);
   for (const phone of extractPhones(html, pageText)) phoneSourceMap.set(phone, finalUrl);
+
+  const businessPages: WebsiteResearch["businessPages"] = [];
+  for (const page of businessPageLinks) {
+    try {
+      const result = await fetchPublicHtml(page.url);
+      if (result.pageText.length >= 80) businessPages.push({
+        url: result.finalUrl,
+        kind: page.kind,
+        label: page.label,
+        excerpt: result.pageText.slice(0, 500),
+      });
+    } catch (error) {
+      console.error("Business page research failed", { url: page.url, error });
+    }
+  }
 
   const hasContactLink = contactUrls.length > 0;
   const hasPrimaryCta = /(ota yhteyttä|pyydä tarjous|varaa aika|varaa nyt|tilaa|kysy lisää|request a quote|contact us|book now|book an appointment|get in touch)/i.test(pageText);
@@ -336,5 +380,6 @@ export async function researchPublicWebsite(startUrl: string): Promise<WebsiteRe
     hasContactLink,
     hasPrimaryCta,
     visibleTextLength: pageText.length,
+    businessPages,
   };
 }
