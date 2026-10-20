@@ -90,23 +90,22 @@ function extractEmails(html: string) {
   const decoded = decodeHtml(html);
   const values = new Set<string>();
 
-  for (const raw of decoded.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []) {
+  // Directly published contact links are more reliable than incidental text
+  // matches (e.g. an address inside embedded scripts).
+  for (const item of decoded.matchAll(/href=["']mailto:([^"'?\s>]+)(?:\?[^"']*)?["']/gi)) {
+    let raw = item[1] ?? "";
+    try { raw = decodeURIComponent(raw); } catch { /* Keep the original. */ }
     const email = validEmail(raw);
     if (email) values.add(email);
   }
 
-  for (const match of decoded.matchAll(/href=["']mailto:([^"'?\s>]+)(?:\?[^"']*)?["']/gi)) {
-    try {
-      const email = validEmail(decodeURIComponent(match[1] ?? ""));
-      if (email) values.add(email);
-    } catch {
-      const email = validEmail(match[1] ?? "");
-      if (email) values.add(email);
-    }
+  for (const item of html.matchAll(/data-cfemail=["']([0-9a-f]+)["']/gi)) {
+    const email = decodeCloudflareEmail(item[1] ?? "");
+    if (email) values.add(email);
   }
 
-  for (const match of html.matchAll(/data-cfemail=["']([0-9a-f]+)["']/gi)) {
-    const email = decodeCloudflareEmail(match[1] ?? "");
+  for (const raw of decoded.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []) {
+    const email = validEmail(raw);
     if (email) values.add(email);
   }
 
