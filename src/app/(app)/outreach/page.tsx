@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SendGmailButton } from "./send-gmail-button";
+import { EditableEmailDraft } from "./editable-email-draft";
 import prisma from "@/lib/prisma";
 import { getCurrentLocale } from "@/lib/current-locale";
 import { requireWorkspace } from "@/lib/workspace";
@@ -242,16 +243,13 @@ export default async function OutreachPage() {
                       </div>
                     ) : null}
 
-                    <div className="mt-5 rounded-2xl border border-white/[0.08] bg-black/10 p-4">
-                      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                        {fi ? "Aihe" : "Subject"}
-                      </div>
-                      <div className="mt-1.5 text-sm font-medium text-slate-200">{draft.subject}</div>
-                      <div className="mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                        {fi ? "Viesti" : "Message"}
-                      </div>
-                      <div className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-300">{draft.body}</div>
-                    </div>
+                    <EditableEmailDraft
+                      draftId={draft.id}
+                      subject={draft.subject}
+                      body={draft.body}
+                      editable={["DRAFT", "NEEDS_REVIEW", "APPROVED"].includes(draft.status) && !latestMessage}
+                      fi={fi}
+                    />
 
                     {draft.personalizationExplanation ? (
                       <div className="mt-3 text-xs leading-5 text-slate-500">
