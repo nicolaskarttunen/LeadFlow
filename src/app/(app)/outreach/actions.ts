@@ -9,6 +9,77 @@ function normalizedEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
+export type EditEmailDraftState = { error: string | null; saved: boolean };
+
+export async function saveEmailDraftEditsAction(
+  draftId: string,
+  _previousState: EditEmailDraftState,
+  formData: FormData,
+): Promise<EditEmailDraftState> {
+  const { user, workspace } = await requireWorkspace();
+  const subject = String(formData.get("subject") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+
+  if (!subject || subject.length > 180 || /[\r\n]/.test(subject)) {
+    return { error: "Kirjoita aihe, jonka pituus on enintään 180 merkkiä.", saved: false };
+  }
+  if (body.length < 20 || body.length > 5000) {
+    return { error: "Kirjoita viesti, jonka pituus on 20–5000 merkkiä.", saved: false };
+  }
+
+  const draft = await prisma.emailDraft.findFirst({
+    where: {
+      id: draftId,
+      workspaceId: workspace.id,
+      status: { in: ["DRAFT", "NEEDS_REVIEW", "APPROVED"] },
+    },
+    select: { id: true, leadId: true, status: true, subject: true, body: true },
+  });
+  if (!draft) return { error: "Luonnosta ei voi enää muokata.", saved: false };
+  const alreadySentOrQueued = await prisma.emailMessage.findFirst({
+    where: { workspaceId: workspace.id, draftId },
+    select: { id: true },
+  });
+  if (alreadySentOrQueued) return { error: "Lähetykseen liittyvää luonnosta ei voi enää muokata.", saved: false };
+
+  if (draft.subject === subject && draft.body === body) {
+    return { error: null, saved: true };
+  }
+
+  const updated = await prisma.emailDraft.updateMany({
+    where: {
+      id: draft.id,
+      workspaceId: workspace.id,
+      status: { in: ["DRAFT", "NEEDS_REVIEW", "APPROVED"] },
+    },
+    data: {
+      subject,
+      body,
+      status: "NEEDS_REVIEW",
+      // Human-edited text has no calibrated AI confidence or guaranteed
+      // correspondence to the originally generated evidence.
+      confidence: null,
+      personalizationExplanation: null,
+      factsUsed: { editedByHuman: true },
+    },
+  });
+  if (updated.count !== 1) return { error: "Luonnoksen tallennus ei onnistunut. Päivitä sivu.", saved: false };
+  await prisma.auditLog.create({
+    data: {
+      workspaceId: workspace.id,
+      actorUserId: user.id,
+      action: "email_draft.edited",
+      entityType: "email_draft",
+      entityId: draft.id,
+      metadata: { leadId: draft.leadId, approvalReset: draft.status === "APPROVED" },
+    },
+  });
+
+  revalidatePath("/outreach");
+  revalidatePath(`/leads/${draft.leadId}`);
+  return { error: null, saved: true };
+}
+
 export async function approveEmailDraftAction(draftId: string) {
   const { user, workspace } = await requireWorkspace();
 
