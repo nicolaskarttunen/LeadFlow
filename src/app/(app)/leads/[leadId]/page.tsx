@@ -8,6 +8,8 @@ import { WebsiteResearchButton } from "@/components/website-research-button";
 import { LeadScoreButton } from "@/components/lead-score-button";
 import { EmailDraftGenerator } from "@/components/email-draft-generator";
 import { FindPublicEmailsButton } from "@/components/find-public-emails-button";
+import { EditableEmailDraft } from "@/app/(app)/outreach/editable-email-draft";
+import { createManualEmailDraftAction } from "@/app/(app)/outreach/actions";
 
 function Detail({
   label,
@@ -286,6 +288,13 @@ export default async function LeadDetailPage({
               <EmailDraftGenerator leadId={lead.id} hasDraft={Boolean(latestDraft)} locale={locale} />
             </div>
 
+            {!latestDraft ? (
+              <form action={createManualEmailDraftAction.bind(null, lead.id)} className="mt-4">
+                <button type="submit" className="rounded-xl border border-violet-400/30 px-4 py-2.5 text-sm text-violet-200 hover:bg-violet-400/10">
+                  {fi ? "Kirjoita oma sähköposti" : "Write your own email"}
+                </button>
+              </form>
+            ) : null}
             {latestDraft ? (
               <div className="mt-5 space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
@@ -299,19 +308,13 @@ export default async function LeadDetailPage({
                   ) : null}
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    {fi ? "Aihe" : "Subject"}
-                  </div>
-                  <div className="mt-2 text-sm font-medium text-slate-100">{latestDraft.subject}</div>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    {fi ? "Viesti" : "Message"}
-                  </div>
-                  <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-200">{latestDraft.body}</div>
-                </div>
+                <EditableEmailDraft
+                  draftId={latestDraft.id}
+                  subject={latestDraft.subject}
+                  body={latestDraft.body}
+                  editable={["DRAFT", "NEEDS_REVIEW", "APPROVED"].includes(latestDraft.status) && !lead.emailMessages.some((message) => message.draftId === latestDraft.id)}
+                  fi={fi}
+                />
 
                 {latestDraft.personalizationExplanation ? (
                   <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.035] p-4">
