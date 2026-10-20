@@ -11,6 +11,56 @@ function normalizedEmail(value: string) {
 
 export type EditEmailDraftState = { error: string | null; saved: boolean };
 
+export async function createManualEmailDraftAction(leadId: string) {
+  const { user, workspace } = await requireWorkspace();
+  const lead = await prisma.lead.findFirst({
+    where: { id: leadId, workspaceId: workspace.id },
+    select: { id: true },
+  });
+  if (!lead) throw new Error("Liidiä ei löytynyt.");
+
+  const existing = await prisma.emailDraft.findFirst({
+    where: {
+      workspaceId: workspace.id,
+      leadId,
+      campaignId: null,
+      status: { in: ["DRAFT", "NEEDS_REVIEW", "APPROVED"] },
+      messages: { none: {} },
+    },
+    select: { id: true },
+  });
+  if (existing) {
+    revalidatePath(`/leads/${leadId}`);
+    return;
+  }
+
+  const draft = await prisma.emailDraft.create({
+    data: {
+      workspaceId: workspace.id,
+      leadId,
+      campaignId: null,
+      subject: "Kirjoita aihe tähän",
+      body: "Kirjoita tähän oma viestisi ja tallenna muutokset.",
+      status: "DRAFT",
+      confidence: null,
+      personalizationExplanation: null,
+      factsUsed: { manuallyCreated: true },
+    },
+  });
+  await prisma.auditLog.create({
+    data: {
+      workspaceId: workspace.id,
+      actorUserId: user.id,
+      action: "email_draft.manually_created",
+      entityType: "email_draft",
+      entityId: draft.id,
+      metadata: { leadId },
+    },
+  });
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath("/outreach");
+}
+
 export async function saveEmailDraftEditsAction(
   draftId: string,
   _previousState: EditEmailDraftState,
